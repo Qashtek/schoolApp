@@ -1,0 +1,157 @@
+
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  password  String?  // Add password field for authentication
+  role      String   @default("STUDENT")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  student   Student?
+  teacher   Teacher?
+  parent    Parent?
+
+  @@map("users")
+}
+
+model Student {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parentId  String?
+  parent    Parent?  @relation("ParentStudents", fields: [parentId], references: [id])
+  grade     String?
+  classId   String?
+  class     Class?   @relation(fields: [classId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  attendances Attendance[]
+  grades      Grade[]
+
+  @@map("students")
+}
+
+model Teacher {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  schoolId  String?
+  school    School?  @relation(fields: [schoolId], references: [id])
+  subject   String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  classes TeacherClass[]
+  grades  Grade[]
+
+  @@map("teachers")
+}
+
+model Parent {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  students Student[] @relation("ParentStudents")
+
+  @@map("parents")
+}
+
+model School {
+  id        String   @id @default(cuid())
+  name      String
+  address   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  teachers Teacher[]
+  classes Class[]
+
+  @@map("schools")
+}
+
+model Class {
+  id        String   @id @default(cuid())
+  name      String
+  grade     String
+  schoolId  String?
+  school    School?  @relation(fields: [schoolId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  teachers TeacherClass[]
+  students Student[]
+  attendances Attendance[]
+  grades      Grade[]
+
+  @@map("classes")
+}
+
+// Join table for Teacher-Class assignment
+model TeacherClass {
+  id         String   @id @default(cuid())
+  teacherId  String
+  teacher    Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  classId    String
+  class      Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([teacherId, classId])
+  @@map("teacher_classes")
+}
+
+model Attendance {
+  id        String   @id @default(cuid())
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  classId   String?
+  class     Class?   @relation(fields: [classId], references: [id])
+  date      DateTime
+  status    String   @default("PRESENT")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([studentId, date])
+  @@map("attendances")
+}
+
+model Grade {
+  id        String   @id @default(cuid())
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  teacherId String
+  teacher   Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  classId   String?
+  class     Class?   @relation(fields: [classId], references: [id])
+  subject   String
+  score     Float
+  date      DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("grades")
+}
+

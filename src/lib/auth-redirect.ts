@@ -1,0 +1,19 @@
+
+type Role = 'ADMIN' | 'TEACHER' | 'STUDENT' | 'PARENT' | 'SUPER_ADMIN';
+
+export function getRedirectPath(role: Role): string {
+  switch (role) {
+    case 'ADMIN':
+    case 'SUPER_ADMIN':
+      return '/dashboard/admin';
+    case 'TEACHER':
+      return '/dashboard/teacher';
+    case 'STUDENT':
+      return '/dashboard/student';
+    case 'PARENT':
+      return '/dashboard/parent';
+    default:
+      return '/dashboard';
+  }
+}
+
