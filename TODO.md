@@ -1,12 +1,10 @@
-# School Management System Setup Tasks
+# Teacher Creation Form Implementation
 
-- [x] Create package.json with required dependencies
-- [x] Create next.config.js
-- [x] Create tailwind.config.js
-- [x] Create postcss.config.js
-- [x] Create tsconfig.json
-- [x] Create prisma/schema.prisma with initial models
-- [x] Create .env with placeholders
-- [ ] Install dependencies using npm install
-- [ ] Run npx prisma generate
-- [ ] Optionally run npx prisma migrate dev (if PostgreSQL is set up)
+## Tasks
+- [ ] Create client component with form fields (name, email, password, classes select)
+- [ ] Add state management for form data and errors
+- [ ] Implement classes fetching on component mount
+- [ ] Handle form submission: register user, create teacher, assign classes
+- [ ] Add validation error display
+- [ ] Implement success redirect to /dashboard/admin/teachers
+- [ ] Test form submission and error handling

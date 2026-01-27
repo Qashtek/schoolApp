@@ -16,9 +16,7 @@ export default withAuth(
 
     // Handle login page specially
     if (isAuthPage) {
-      if (isAuth) {
-        return NextResponse.redirect(new URL('/dashboard', req.url))
-      }
+      // Allow authenticated users to access login page (for logout purposes)
       return NextResponse.next()
     }
 

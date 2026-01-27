@@ -130,14 +130,33 @@ export default function NewTeacherPage() {
         },
         body: JSON.stringify({
           userId: userData.id,
-          subject: formData.subject,
-          classIds: formData.classIds,
+          subject: formData.subject || undefined,
         }),
       });
 
       if (!teacherResponse.ok) {
         const errorData = await teacherResponse.json();
         throw new Error(errorData.error || 'Failed to create teacher record');
+      }
+
+      const teacherData = await teacherResponse.json();
+
+      // Assign classes if any selected
+      if (formData.classIds.length > 0) {
+        const assignResponse = await fetch(`/api/teachers/${teacherData.id}/classes`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            classIds: formData.classIds,
+          }),
+        });
+
+        if (!assignResponse.ok) {
+          const errorData = await assignResponse.json();
+          throw new Error(errorData.error || 'Failed to assign classes');
+        }
       }
 
       // Success - redirect to teachers list

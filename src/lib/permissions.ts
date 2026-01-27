@@ -1,4 +1,8 @@
-export type Role = 'ADMIN' | 'TEACHER' | 'STUDENT' | 'PARENT';
+export type Role = 'ADMIN' | 'SUPER_ADMIN' | 'TEACHER' | 'STUDENT' | 'PARENT';
+
+export function isAdmin(role: Role): boolean {
+n rum export type Role = 'ADMIN' | 'TEACHER' | 'STUDENT' | 'PARENT';
+}
 
 export function isAdmin(role: Role): boolean {
   return role === 'ADMIN';

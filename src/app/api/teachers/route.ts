@@ -7,7 +7,9 @@ import { authOptions } from '@/lib/auth';
 
 // Input validation schema for creating a teacher
 const createTeacherSchema = z.object({
-  userId: z.string().min(1, 'User ID is required'),
+  name: z.string().min(1, 'Name is required'),
+  email: z.string().email('Invalid email address'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
   schoolId: z.string().optional(),
   subject: z.string().optional(),
 });
@@ -37,8 +39,8 @@ export async function GET(request: Request) {
 
     const userRole = session.user.role as Role;
 
-    // Only ADMIN can list teachers (for now - could be expanded)
-    if (userRole !== 'ADMIN') {
+    // Only ADMIN or SUPER_ADMIN can list teachers
+    if (userRole !== 'ADMIN' && userRole !== 'SUPER_ADMIN') {
       return NextResponse.json(
         { error: 'Forbidden: Only administrators can list teachers' },
         { status: 403 }

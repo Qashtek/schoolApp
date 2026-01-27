@@ -1,5 +1,6 @@
 
 import { prisma } from '@/lib/prisma';
+import { hash } from 'bcryptjs';
 import { Role, isAdmin } from '@/lib/permissions';
 
 export interface AuthenticatedUser {
@@ -9,7 +10,9 @@ export interface AuthenticatedUser {
 }
 
 export interface CreateTeacherInput {
-  userId: string;
+  name: string;
+  email: string;
+  password: string;
   schoolId?: string;
   subject?: string;
 }
@@ -34,9 +37,10 @@ export class TeacherService {
 
   /**
    * Check if the current user has permission to perform the action
+   * Golden rule: If role !== ADMIN → throw immediately
    */
   private requireAdmin(): void {
-    if (!isAdmin(this.user.role)) {
+    if (this.user.role !== 'ADMIN' && this.user.role !== 'SUPER_ADMIN') {
       throw new Error('Unauthorized: Only administrators can perform this action');
     }
   }
