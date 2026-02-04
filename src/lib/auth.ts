@@ -3,11 +3,17 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import { PrismaAdapter } from '@next-auth/prisma-adapter';
 import { prisma } from '@/lib/prisma';
 
-type Role = 'ADMIN' | 'TEACHER' | 'STUDENT' | 'PARENT';
+export type Role = 'ADMIN' | 'SUPER_ADMIN' | 'TEACHER' | 'STUDENT' | 'PARENT';
 
 // Extend the default session user type
 declare module 'next-auth' {
   interface Session {
+    token: {
+      sub: string;
+      role: Role;
+      email?: string;
+      schoolId?: string;
+    };
     user: {
       id: string;
       email: string;

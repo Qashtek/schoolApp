@@ -1,15 +1,13 @@
 import { getServerSession } from 'next-auth';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { prisma } from '@/lib/prisma';
 import { TeacherService } from '@/lib/services/teacher.service';
-import { Role } from '@/lib/permissions';
-import { authOptions } from '@/lib/auth';
+import { authOptions, Role } from '@/lib/auth';
 
 // Input validation schema for creating a teacher
 const createTeacherSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
-  email: z.string().email('Invalid email address'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
+  userId: z.string().min(1, 'User ID is required'),
   schoolId: z.string().optional(),
   subject: z.string().optional(),
 });
@@ -85,7 +83,7 @@ export async function GET(request: Request) {
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Invalid request parameters', details: error.errors },
+        { error: 'Invalid request parameters', details: error.flatten() },
         { status: 400 }
       );
     }
@@ -143,7 +141,7 @@ export async function POST(request: Request) {
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Validation error', details: error.errors },
+        { error: 'Validation error', details: error.flatten() },
         { status: 400 }
       );
     }
@@ -162,6 +160,67 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: message },
         { status: 409 }
+      );
+    }
+
+    return NextResponse.json(
+      { error: message },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * DELETE /api/teachers?userId=xxx
+ * Delete a user by userId (for cleanup when teacher creation fails)
+ * This is an internal/admin endpoint for cleanup purposes
+ */
+export async function DELETE(request: Request) {
+  try {
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const userRole = session.user.role as Role;
+
+    // Only ADMIN can delete users
+    if (userRole !== 'ADMIN' && userRole !== 'SUPER_ADMIN') {
+      return NextResponse.json(
+        { error: 'Forbidden: Only administrators can delete users' },
+        { status: 403 }
+      );
+    }
+
+    const { searchParams } = new URL(request.url);
+    const userId = searchParams.get('userId');
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'User ID is required' },
+        { status: 400 }
+      );
+    }
+
+    // Delete the user (this will cascade delete teacher/student/parent records)
+    await prisma.user.delete({
+      where: { id: userId },
+    });
+
+    return NextResponse.json({ success: true, message: 'User deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting user:', error);
+
+    const message = error instanceof Error ? error.message : 'Internal server error';
+
+    if (message.includes('not found')) {
+      return NextResponse.json(
+        { error: message },
+        { status: 404 }
       );
     }
 

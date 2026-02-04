@@ -1,7 +1,8 @@
 
 import { prisma } from '@/lib/prisma';
 import { hash } from 'bcryptjs';
-import { Role, isAdmin } from '@/lib/permissions';
+import { isAdmin } from '@/lib/permissions';
+import { Role } from '@/lib/auth';
 
 export interface AuthenticatedUser {
   id: string;
@@ -10,9 +11,7 @@ export interface AuthenticatedUser {
 }
 
 export interface CreateTeacherInput {
-  name: string;
-  email: string;
-  password: string;
+  userId: string;
   schoolId?: string;
   subject?: string;
 }
@@ -447,14 +446,23 @@ export class TeacherService {
         school: true,
         classes: {
           include: {
-            class: true,
+            class: {
+              include: {
+                school: true,
+                _count: {
+                  select: {
+                    students: true,
+                  },
+                },
+              },
+            },
           },
         },
       },
     });
 
     if (!teacher) {
-      throw new Error('Teacher not found');
+      throw new Error("Teacher not found");
     }
 
     return teacher;
@@ -474,4 +482,3 @@ export class TeacherService {
     return assignments.map(a => a.class);
   }
 }
-

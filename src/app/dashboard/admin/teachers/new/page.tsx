@@ -122,45 +122,53 @@ export default function NewTeacherPage() {
 
       const userData = await userResponse.json();
 
-      // Then create the teacher record
-      const teacherResponse = await fetch('/api/teachers', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId: userData.id,
-          subject: formData.subject || undefined,
-        }),
-      });
-
-      if (!teacherResponse.ok) {
-        const errorData = await teacherResponse.json();
-        throw new Error(errorData.error || 'Failed to create teacher record');
-      }
-
-      const teacherData = await teacherResponse.json();
-
-      // Assign classes if any selected
-      if (formData.classIds.length > 0) {
-        const assignResponse = await fetch(`/api/teachers/${teacherData.id}/classes`, {
+      try {
+        // Then create the teacher record
+        const teacherResponse = await fetch('/api/teachers', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            classIds: formData.classIds,
+            userId: userData.id,
+            subject: formData.subject || undefined,
           }),
         });
 
-        if (!assignResponse.ok) {
-          const errorData = await assignResponse.json();
-          throw new Error(errorData.error || 'Failed to assign classes');
+        if (!teacherResponse.ok) {
+          const errorData = await teacherResponse.json();
+          throw new Error(errorData.error || 'Failed to create teacher record');
         }
-      }
 
-      // Success - redirect to teachers list
-      router.push('/dashboard/admin/teachers');
+        const teacherData = await teacherResponse.json();
+
+        // Assign classes if any selected
+        if (formData.classIds.length > 0) {
+          const assignResponse = await fetch(`/api/teachers/${teacherData.id}/classes`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              classIds: formData.classIds,
+            }),
+          });
+
+          if (!assignResponse.ok) {
+            const errorData = await assignResponse.json();
+            throw new Error(errorData.error || 'Failed to assign classes');
+          }
+        }
+
+        // Success - redirect to teachers list
+        router.push('/dashboard/admin/teachers');
+      } catch (teacherError) {
+        // Clean up the created user if teacher creation failed
+        await fetch(`/api/teachers/${userData.id}`, {
+          method: 'DELETE',
+        }).catch(() => {});
+        throw teacherError;
+      }
     } catch (error) {
       console.error('Error creating teacher:', error);
       setErrors({

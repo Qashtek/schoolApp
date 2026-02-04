@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
-import { Role, isAdmin } from '@/lib/permissions';
+import { Role } from '@/lib/auth';
+import { isAdmin } from '@/lib/permissions';
 
 export interface AuthenticatedUser {
   id: string;
@@ -9,8 +10,12 @@ export interface AuthenticatedUser {
 
 export interface CreateStudentInput {
   userId: string;
+  firstName: string;
+  lastName: string;
+  admissionNumber: string;
+  schoolId: string;
   grade?: string;
-  class?: string;
+  classId?: string;
 }
 
 export interface UpdateStudentInput {
@@ -50,11 +55,27 @@ export class StudentService {
       throw new Error('Student record already exists for this user');
     }
 
+    // Check for duplicate admission number within the same school
+    const duplicateAdmission = await prisma.student.findFirst({
+      where: {
+        admissionNumber: data.admissionNumber,
+        schoolId: data.schoolId,
+      },
+    });
+
+    if (duplicateAdmission) {
+      throw new Error('Admission number already exists for this school');
+    }
+
     const student = await prisma.student.create({
       data: {
         userId: data.userId,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        admissionNumber: data.admissionNumber,
+        schoolId: data.schoolId,
         grade: data.grade,
-        class: data.class,
+        classId: data.classId,
       },
       include: {
         user: {
@@ -64,6 +85,8 @@ export class StudentService {
             email: true,
           },
         },
+        school: true,
+        class: true,
       },
     });
 

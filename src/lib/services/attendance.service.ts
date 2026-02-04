@@ -1,0 +1,298 @@
+import { prisma } from '@/lib/prisma';
+import { AuthenticatedUser } from '@/lib/permissions';
+
+export interface AttendanceRecord {
+  studentId: string;
+  status: 'PRESENT' | 'ABSENT' | 'LATE';
+}
+
+export interface MarkAttendanceInput {
+  classId: string;
+  date: Date;
+  records: AttendanceRecord[];
+}
+
+export class AttendanceService {
+  private user: AuthenticatedUser;
+
+  constructor(user: AuthenticatedUser) {
+    this.user = user;
+  }
+
+  /**
+   * Check if the current user is a teacher
+   * Only TEACHER role can mark attendance
+   */
+  private requireTeacher(): void {
+    if (this.user.role !== 'TEACHER') {
+      throw new Error('Unauthorized: Only teachers can mark attendance');
+    }
+  }
+
+  /**
+   * Check if the teacher is assigned to the specified class
+   */
+  private async requireClassAssignment(teacherId: string, classId: string): Promise<void> {
+    const assignment = await prisma.teacherClass.findUnique({
+      where: {
+        teacherId_classId: {
+          teacherId,
+          classId,
+        },
+      },
+    });
+
+    if (!assignment) {
+      throw new Error('Unauthorized: Teacher is not assigned to this class');
+    }
+  }
+
+  /**
+   * Mark attendance for a class
+   * Only assigned teachers can mark attendance for their classes
+   * Prevents duplicate attendance marking for the same day
+   */
+  async markAttendance(data: MarkAttendanceInput) {
+    this.requireTeacher();
+
+    // Get teacher record
+    const teacher = await prisma.teacher.findUnique({
+      where: { userId: this.user.id },
+    });
+
+    if (!teacher) {
+      throw new Error('Teacher record not found');
+    }
+
+    // Verify teacher is assigned to the class
+    await this.requireClassAssignment(teacher.id, data.classId);
+
+    // Verify class exists
+    const classRecord = await prisma.class.findUnique({
+      where: { id: data.classId },
+    });
+
+    if (!classRecord) {
+      throw new Error('Class not found');
+    }
+
+    // Validate attendance records
+    if (!data.records || data.records.length === 0) {
+      throw new Error('Attendance records cannot be empty');
+    }
+
+    // Get student IDs from records
+    const studentIds = data.records.map(record => record.studentId);
+
+    // Verify all students exist and are in the class
+    const students = await prisma.student.findMany({
+      where: {
+        id: { in: studentIds },
+        classId: data.classId,
+      },
+    });
+
+    if (students.length !== studentIds.length) {
+      const foundIds = students.map(s => s.id);
+      const invalidIds = studentIds.filter(id => !foundIds.includes(id));
+      throw new Error(`Invalid students for this class: ${invalidIds.join(', ')}`);
+    }
+
+    // Normalize date to start of day
+    const attendanceDate = new Date(data.date);
+    attendanceDate.setHours(0, 0, 0, 0);
+
+    // Check for existing attendance records for this date/class
+    const existingRecords = await prisma.attendance.findMany({
+      where: {
+        classId: data.classId,
+        date: attendanceDate,
+        studentId: { in: studentIds },
+      },
+    });
+
+    if (existingRecords.length > 0) {
+      const existingStudentIds = existingRecords.map(r => r.studentId);
+      throw new Error(`Attendance already marked for students: ${existingStudentIds.join(', ')}`);
+    }
+
+    // Use transaction to create attendance records
+    const result = await prisma.$transaction(async (tx) => {
+      const attendanceRecords = data.records.map(record => ({
+        studentId: record.studentId,
+        classId: data.classId,
+        teacherId: teacher.id,
+        date: attendanceDate,
+        status: record.status,
+      }));
+
+      const createdRecords = await tx.attendance.createMany({
+        data: attendanceRecords,
+      });
+
+      // Return the created records with relations
+      return tx.attendance.findMany({
+        where: {
+          classId: data.classId,
+          date: attendanceDate,
+        },
+        include: {
+          student: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+            },
+          },
+          teacher: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+            },
+          },
+          class: true,
+        },
+      });
+    });
+
+    return result;
+  }
+
+  /**
+   * Get attendance records for a class on a specific date
+   */
+  async getAttendanceForClass(classId: string, date: Date) {
+    this.requireTeacher();
+
+    // Get teacher record
+    const teacher = await prisma.teacher.findUnique({
+      where: { userId: this.user.id },
+    });
+
+    if (!teacher) {
+      throw new Error('Teacher record not found');
+    }
+
+    // Verify teacher is assigned to the class
+    await this.requireClassAssignment(teacher.id, classId);
+
+    // Calculate startOfDay (00:00:00) and endOfDay (next day 00:00:00)
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const endOfDay = new Date(startOfDay);
+    endOfDay.setDate(endOfDay.getDate() + 1);
+
+    const records = await prisma.attendance.findMany({
+      where: {
+        classId,
+        date: {
+          gte: startOfDay,
+          lt: endOfDay,
+        },
+      },
+      include: {
+        student: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+        teacher: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+        class: true,
+      },
+      orderBy: {
+        student: {
+          user: {
+            name: 'asc',
+          },
+        },
+      },
+    });
+
+    return records;
+  }
+
+  /**
+   * Update attendance record (only by the teacher who marked it)
+   */
+  async updateAttendance(attendanceId: string, status: 'PRESENT' | 'ABSENT' | 'LATE') {
+    this.requireTeacher();
+
+    // Get teacher record
+    const teacher = await prisma.teacher.findUnique({
+      where: { userId: this.user.id },
+    });
+
+    if (!teacher) {
+      throw new Error('Teacher record not found');
+    }
+
+
+    const attendance = await prisma.attendance.findUnique({
+      where: { id: attendanceId },
+      include: {
+        class: true,
+      },
+    });
+
+    if (!attendance) {
+      throw new Error('Attendance record not found');
+    }
+
+    if (attendance.teacherId !== teacher.id) {
+      throw new Error('Unauthorized: Can only update attendance marked by yourself');
+    }
+
+    // Update the record
+    const updatedRecord = await prisma.attendance.update({
+      where: { id: attendanceId },
+      data: { status },
+      include: {
+        student: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+        teacher: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+        class: true,
+      },
+    });
+
+    return updatedRecord;
+  }
+}

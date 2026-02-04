@@ -2,26 +2,27 @@ import { getServerSession } from 'next-auth';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { StudentService } from '@/lib/services/student.service';
-import { Role } from '@/lib/permissions';
+import { Role } from '@/lib/auth';
 
-// Input validation schema
+// Input validation schema for creating student
 const createStudentSchema = z.object({
   userId: z.string().min(1, 'User ID is required'),
+  firstName: z.string().min(1, 'First name is required'),
+  lastName: z.string().min(1, 'Last name is required'),
+  admissionNumber: z.string().min(1, 'Admission number is required'),
+  schoolId: z.string().min(1, 'School ID is required'),
   grade: z.string().optional(),
-  class: z.string().optional(),
+  classId: z.string().optional(),
 });
 
-// Query validation schema
-const getStudentsSchema = z.object({
-  grade: z.string().optional(),
-  class: z.string().optional(),
-  skip: z.coerce.number().int().min(0).optional().default(0),
-  take: z.coerce.number().int().min(1).max(100).optional().default(10),
+// Query validation schema for getting students by class
+const getStudentsByClassSchema = z.object({
+  classId: z.string().min(1, 'Class ID is required'),
 });
 
 /**
- * GET /api/students
- * List all students with optional filtering and pagination
+ * GET /api/students?classId=<classId>
+ * Fetch students by classId
  */
 export async function GET(request: Request) {
   try {
@@ -36,14 +37,11 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const params = {
-      grade: searchParams.get('grade') ?? undefined,
-      class: searchParams.get('class') ?? undefined,
-      skip: searchParams.get('skip') ?? undefined,
-      take: searchParams.get('take') ?? undefined,
+      classId: searchParams.get('classId') ?? undefined,
     };
 
     // Validate query parameters
-    const validatedParams = getStudentsSchema.parse(params);
+    const validatedParams = getStudentsByClassSchema.parse(params);
 
     const user = {
       id: session.token.sub as string,
@@ -51,28 +49,26 @@ export async function GET(request: Request) {
       email: session.token.email as string | undefined,
     };
 
+    // Check if user is ADMIN
+    if (user.role !== 'ADMIN') {
+      return NextResponse.json(
+        { error: 'Forbidden: Only administrators can access this resource' },
+        { status: 403 }
+      );
+    }
+
     const studentService = new StudentService(user);
-    const { students, count } = await studentService.getAllStudents({
-      grade: validatedParams.grade,
-      class: validatedParams.class,
-      skip: validatedParams.skip,
-      take: validatedParams.take,
-    });
+    const students = await studentService.getStudentsByClass(validatedParams.classId);
 
     return NextResponse.json({
       data: students,
-      meta: {
-        total: count,
-        skip: validatedParams.skip,
-        take: validatedParams.take,
-      },
     });
   } catch (error) {
     console.error('Error fetching students:', error);
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Invalid request parameters', details: error.errors },
+        { error: 'Invalid request parameters', details: error.issues },
         { status: 400 }
       );
     }
@@ -111,6 +107,14 @@ export async function POST(request: Request) {
       email: session.token.email as string | undefined,
     };
 
+    // Check if user is ADMIN
+    if (user.role !== 'ADMIN') {
+      return NextResponse.json(
+        { error: 'Forbidden: Only administrators can create students' },
+        { status: 403 }
+      );
+    }
+
     const studentService = new StudentService(user);
     const student = await studentService.createStudent(validatedData);
 
@@ -120,7 +124,7 @@ export async function POST(request: Request) {
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Validation error', details: error.errors },
+        { error: 'Validation error', details: error.issues },
         { status: 400 }
       );
     }
