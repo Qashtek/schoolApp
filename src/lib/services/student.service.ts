@@ -9,7 +9,7 @@ export interface AuthenticatedUser {
 }
 
 export interface CreateStudentInput {
-  userId: string;
+  userId?: string;
   firstName: string;
   lastName: string;
   admissionNumber: string;
@@ -34,7 +34,7 @@ export class StudentService {
    * Check if the current user has permission to perform the action
    */
   private requireAdmin(): void {
-    if (!isAdmin(this.user.role)) {
+    if (!isAdmin(this.user)) {
       throw new Error('Unauthorized: Only administrators can perform this action');
     }
   }
@@ -46,10 +46,12 @@ export class StudentService {
   async createStudent(data: CreateStudentInput) {
     this.requireAdmin();
 
-    // Check if user already exists as a student
-    const existingStudent = await prisma.student.findUnique({
-      where: { userId: data.userId },
-    });
+    // Only enforce one-to-one user linkage when a userId is provided.
+    const existingStudent = data.userId
+      ? await prisma.student.findUnique({
+          where: { userId: data.userId },
+        })
+      : null;
 
     if (existingStudent) {
       throw new Error('Student record already exists for this user');
@@ -67,27 +69,43 @@ export class StudentService {
       throw new Error('Admission number already exists for this school');
     }
 
-    const student = await prisma.student.create({
-      data: {
-        userId: data.userId,
-        firstName: data.firstName,
-        lastName: data.lastName,
-        admissionNumber: data.admissionNumber,
-        schoolId: data.schoolId,
-        grade: data.grade,
-        classId: data.classId,
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
+    const student = await prisma.$transaction(async (tx) => {
+      let resolvedUserId = data.userId;
+
+      if (!resolvedUserId) {
+        const generatedEmail = `student-${data.admissionNumber}-${Date.now()}@local.school`;
+        const createdUser = await tx.user.create({
+          data: {
+            name: `${data.firstName} ${data.lastName}`.trim(),
+            email: generatedEmail,
+            role: 'STUDENT',
           },
+        });
+        resolvedUserId = createdUser.id;
+      }
+
+      return tx.student.create({
+        data: {
+          userId: resolvedUserId,
+          firstName: data.firstName,
+          lastName: data.lastName,
+          admissionNumber: data.admissionNumber,
+          schoolId: data.schoolId,
+          grade: data.grade,
+          classId: data.classId,
         },
-        school: true,
-        class: true,
-      },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          school: true,
+          class: true,
+        },
+      });
     });
 
     return student;
@@ -278,4 +296,3 @@ export class StudentService {
     return attendances;
   }
 }
-

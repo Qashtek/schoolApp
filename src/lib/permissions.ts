@@ -1,4 +1,3 @@
-import { User } from '@prisma/client';
 import { Role } from '@/lib/auth';
 
 export type AuthenticatedUser = {
@@ -7,6 +6,12 @@ export type AuthenticatedUser = {
   name?: string | null;
   role: Role;
 };
+
+type UserOrRole = AuthenticatedUser | Role;
+
+function resolveRole(userOrRole: UserOrRole): Role {
+  return typeof userOrRole === 'string' ? userOrRole : userOrRole.role;
+}
 
 export function hasPermission(user: AuthenticatedUser, permission: string): boolean {
   const rolePermissions: Record<string, string[]> = {
@@ -20,18 +25,18 @@ export function hasPermission(user: AuthenticatedUser, permission: string): bool
   return permissions.includes('*') || permissions.includes(permission);
 }
 
-export function isTeacher(user: AuthenticatedUser): boolean {
-  return user.role === 'TEACHER';
+export function isTeacher(userOrRole: UserOrRole): boolean {
+  return resolveRole(userOrRole) === 'TEACHER';
 }
 
-export function isAdmin(user: AuthenticatedUser): boolean {
-  return user.role === 'ADMIN';
+export function isAdmin(userOrRole: UserOrRole): boolean {
+  return resolveRole(userOrRole) === 'ADMIN';
 }
 
-export function isStudent(user: AuthenticatedUser): boolean {
-  return user.role === 'STUDENT';
+export function isStudent(userOrRole: UserOrRole): boolean {
+  return resolveRole(userOrRole) === 'STUDENT';
 }
 
-export function isParent(user: AuthenticatedUser): boolean {
-  return user.role === 'PARENT';
+export function isParent(userOrRole: UserOrRole): boolean {
+  return resolveRole(userOrRole) === 'PARENT';
 }

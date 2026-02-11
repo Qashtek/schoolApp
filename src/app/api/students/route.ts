@@ -2,15 +2,14 @@ import { getServerSession } from 'next-auth';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { StudentService } from '@/lib/services/student.service';
-import { Role } from '@/lib/auth';
+import { authOptions, Role } from '@/lib/auth';
 
 // Input validation schema for creating student
 const createStudentSchema = z.object({
-  userId: z.string().min(1, 'User ID is required'),
+  userId: z.string().min(1, 'User ID is required').optional(),
   firstName: z.string().min(1, 'First name is required'),
   lastName: z.string().min(1, 'Last name is required'),
   admissionNumber: z.string().min(1, 'Admission number is required'),
-  schoolId: z.string().min(1, 'School ID is required'),
   grade: z.string().optional(),
   classId: z.string().optional(),
 });
@@ -26,7 +25,8 @@ const getStudentsByClassSchema = z.object({
  */
 export async function GET(request: Request) {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
+    console.log('SESSION USER:', session?.user);
 
     if (!session?.token) {
       return NextResponse.json(
@@ -44,8 +44,8 @@ export async function GET(request: Request) {
     const validatedParams = getStudentsByClassSchema.parse(params);
 
     const user = {
-      id: session.token.sub as string,
-      role: session.token.role as Role,
+      id: session.user.id as string,
+      role: session.user.role as Role,
       email: session.token.email as string | undefined,
     };
 
@@ -87,12 +87,20 @@ export async function GET(request: Request) {
  */
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
+    console.log('SESSION USER:', session?.user);
 
     if (!session?.token) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
+      );
+    }
+
+    if (!session.user?.schoolId) {
+      return NextResponse.json(
+        { error: 'Admin is not assigned to a school' },
+        { status: 400 }
       );
     }
 
@@ -102,8 +110,8 @@ export async function POST(request: Request) {
     const validatedData = createStudentSchema.parse(body);
 
     const user = {
-      id: session.token.sub as string,
-      role: session.token.role as Role,
+      id: session.user.id as string,
+      role: session.user.role as Role,
       email: session.token.email as string | undefined,
     };
 
@@ -116,7 +124,10 @@ export async function POST(request: Request) {
     }
 
     const studentService = new StudentService(user);
-    const student = await studentService.createStudent(validatedData);
+    const student = await studentService.createStudent({
+      ...validatedData,
+      schoolId: session.user.schoolId,
+    });
 
     return NextResponse.json(student, { status: 201 });
   } catch (error) {
@@ -152,4 +163,3 @@ export async function POST(request: Request) {
     );
   }
 }
-

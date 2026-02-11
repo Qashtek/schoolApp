@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { redirect } from 'next/navigation';
 import { authOptions } from '@/lib/auth';
 import { Users, GraduationCap, Calendar, BookOpen } from 'lucide-react';
+import Link from 'next/link';
 
 export default async function AdminDashboard() {
   const session = await getServerSession(authOptions);
@@ -33,43 +34,49 @@ export default async function AdminDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
 
         {/* Students Section */}
-        <section className="bg-white rounded-lg shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow duration-200">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-blue-50 rounded-lg">
-              <Users className="w-6 h-6 text-blue-600" />
+        <Link href="/dashboard/admin/students" className="block">
+          <section className="bg-white rounded-lg shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow duration-200 h-full">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-blue-50 rounded-lg">
+                <GraduationCap className="w-6 h-6 text-blue-600" />
+              </div>
+              <div>
+                <h2 className="text-lg font-medium text-gray-900">Students</h2>
+                <p className="text-sm text-gray-500">Manage student records</p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-lg font-medium text-gray-900">Students</h2>
-              <p className="text-sm text-gray-500">Manage student records</p>
-            </div>
-          </div>
-        </section>
+          </section>
+        </Link>
 
         {/* Teachers Section */}
-        <section className="bg-white rounded-lg shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow duration-200">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-green-50 rounded-lg">
-              <GraduationCap className="w-6 h-6 text-green-600" />
+        <Link href="/dashboard/admin/teachers" className="block">
+          <section className="bg-white rounded-lg shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow duration-200 h-full">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-green-50 rounded-lg">
+                <Users className="w-6 h-6 text-green-600" />
+              </div>
+              <div>
+                <h2 className="text-lg font-medium text-gray-900">Teachers</h2>
+                <p className="text-sm text-gray-500">Manage faculty members</p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-lg font-medium text-gray-900">Teachers</h2>
-              <p className="text-sm text-gray-500">Manage faculty members</p>
-            </div>
-          </div>
-        </section>
+          </section>
+        </Link>
 
         {/* Classes Section */}
-        <section className="bg-white rounded-lg shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow duration-200">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-purple-50 rounded-lg">
-              <BookOpen className="w-6 h-6 text-purple-600" />
+        <Link href="/dashboard/admin/classes" className="block">
+          <section className="bg-white rounded-lg shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow duration-200 h-full">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-purple-50 rounded-lg">
+                <BookOpen className="w-6 h-6 text-purple-600" />
+              </div>
+              <div>
+                <h2 className="text-lg font-medium text-gray-900">Classes</h2>
+                <p className="text-sm text-gray-500">Organize class schedules</p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-lg font-medium text-gray-900">Classes</h2>
-              <p className="text-sm text-gray-500">Organize class schedules</p>
-            </div>
-          </div>
-        </section>
+          </section>
+        </Link>
 
         {/* Academic Sessions Section */}
         <section className="bg-white rounded-lg shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow duration-200">

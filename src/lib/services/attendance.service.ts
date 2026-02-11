@@ -168,7 +168,7 @@ export class AttendanceService {
   /**
    * Get attendance records for a class on a specific date
    */
-  async getAttendanceForClass(classId: string, date: Date) {
+  async getAttendanceForClassAndDate(classId: string, date: Date) {
     this.requireTeacher();
 
     // Get teacher record

@@ -2,7 +2,7 @@ import { getServerSession } from 'next-auth';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { AttendanceService } from '@/lib/services/attendance.service';
-import { Role } from '@/lib/auth';
+import { authOptions, Role } from '@/lib/auth';
 
 // Input validation schema for marking attendance
 const markAttendanceSchema = z.object({
@@ -29,9 +29,10 @@ const getAttendanceSchema = z.object({
  */
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
+    console.log('API SESSION USER:', session?.user);
 
-    if (!session?.token) {
+    if (!session || session.user.role !== 'ADMIN') {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -105,9 +106,10 @@ export async function POST(request: Request) {
  */
 export async function GET(request: Request) {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
+    console.log('API SESSION USER:', session?.user);
 
-    if (!session?.token) {
+    if (!session || session.user.role !== 'ADMIN') {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -168,4 +170,3 @@ export async function GET(request: Request) {
     );
   }
 }
-

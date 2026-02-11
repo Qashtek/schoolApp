@@ -4,7 +4,7 @@
 
 import { Session } from 'next-auth';
 import Link from 'next/link';
-import { LayoutDashboard, BookOpen, LogOut } from 'lucide-react';
+import { LayoutDashboard, BookOpen, GraduationCap, LogOut } from 'lucide-react';
 import { useEffect } from 'react';
 import { signOut } from 'next-auth/react';
 
@@ -46,6 +46,13 @@ export function TeacherLayoutClient({ session, children }: TeacherLayoutClientPr
           >
             <LayoutDashboard className="w-5 h-5" />
             Dashboard
+          </Link>
+          <Link
+            href="/dashboard/teacher/students"
+            className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
+          >
+            <GraduationCap className="w-5 h-5" />
+            Students
           </Link>
           <Link
             href="/dashboard/teacher/attendance"
