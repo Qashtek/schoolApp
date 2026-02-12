@@ -12,6 +12,12 @@ export interface MarkAttendanceInput {
   records: AttendanceRecord[];
 }
 
+export interface MarkSingleAttendanceInput {
+  classId: string;
+  studentId: string;
+  status: 'PRESENT' | 'ABSENT' | 'LATE';
+}
+
 export class AttendanceService {
   private user: AuthenticatedUser;
 
@@ -54,6 +60,10 @@ export class AttendanceService {
    */
   async markAttendance(data: MarkAttendanceInput) {
     this.requireTeacher();
+
+    if (!this.user.schoolId) {
+      throw new Error('Teacher is not assigned to a school');
+    }
 
     // Get teacher record
     const teacher = await prisma.teacher.findUnique({
@@ -122,6 +132,7 @@ export class AttendanceService {
         studentId: record.studentId,
         classId: data.classId,
         teacherId: teacher.id,
+        schoolId: this.user.schoolId,
         date: attendanceDate,
         status: record.status,
       }));
@@ -231,6 +242,106 @@ export class AttendanceService {
     });
 
     return records;
+  }
+
+  /**
+   * Mark attendance for a single student
+   */
+  async markSingleAttendance(data: MarkSingleAttendanceInput) {
+    this.requireTeacher();
+
+    // Get teacher record
+    const teacher = await prisma.teacher.findUnique({
+      where: { userId: this.user.id },
+    });
+
+    if (!teacher) {
+      throw new Error('Teacher record not found');
+    }
+
+    if (!teacher.schoolId) {
+      throw new Error('Teacher is not assigned to a school');
+    }
+
+    // Verify teacher is assigned to the class
+    await this.requireClassAssignment(teacher.id, data.classId);
+
+    // Verify class exists
+    const classRecord = await prisma.class.findUnique({
+      where: { id: data.classId },
+    });
+
+    if (!classRecord) {
+      throw new Error('Class not found');
+    }
+
+    // Verify student exists and is in the class
+    const student = await prisma.student.findUnique({
+      where: {
+        id: data.studentId,
+        classId: data.classId,
+      },
+    });
+
+    if (!student) {
+      throw new Error('Student not found in this class');
+    }
+
+    // Normalize date to start of day
+    const attendanceDate = new Date();
+    attendanceDate.setHours(0, 0, 0, 0);
+
+    // Check for existing attendance record for this date/student/class
+    const existingRecord = await prisma.attendance.findUnique({
+      where: {
+        studentId_classId_date: {
+          studentId: data.studentId,
+          classId: data.classId,
+          date: attendanceDate,
+        },
+      },
+    });
+
+    if (existingRecord) {
+      throw new Error('Attendance already marked for this student today');
+    }
+
+    // Create attendance record
+    const attendanceRecord = await prisma.attendance.create({
+      data: {
+        studentId: data.studentId,
+        classId: data.classId,
+        teacherId: teacher.id,
+        schoolId: this.user.schoolId || '',
+        date: attendanceDate,
+        status: data.status,
+      },
+      include: {
+        student: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+        teacher: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+        class: true,
+      },
+    });
+
+    return attendanceRecord;
   }
 
   /**

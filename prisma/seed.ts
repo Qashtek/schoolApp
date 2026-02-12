@@ -44,6 +44,18 @@ async function main() {
   });
 
   console.log(`Linked admin to school: ${DEMO_ADMIN_EMAIL} -> ${school.name}`);
+
+  // Assign all teachers to default school
+  const teachers = await prisma.user.findMany({ where: { role: "TEACHER" } });
+  for (const teacher of teachers) {
+    if (!teacher.schoolId) {
+      await prisma.user.update({
+        where: { id: teacher.id },
+        data: { schoolId: school.id },
+      });
+      console.log(`Assigned school to teacher: ${teacher.name} (${teacher.id})`);
+    }
+  }
 }
 
 main()

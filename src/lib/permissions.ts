@@ -5,6 +5,7 @@ export type AuthenticatedUser = {
   email: string;
   name?: string | null;
   role: Role;
+  schoolId?: string;
 };
 
 type UserOrRole = AuthenticatedUser | Role;

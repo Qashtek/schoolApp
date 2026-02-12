@@ -2,7 +2,7 @@
 import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { Role } from '@/lib/permissions';
+import { Role } from '@/lib/auth';
 import { AttendanceService } from '@/lib/services/attendance.service';
 import { TeacherService } from '@/lib/services/teacher.service';
 import { prisma } from '@/lib/prisma';
@@ -75,7 +75,7 @@ export default async function AttendancePage({ params }: PageProps) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const existingAttendance = await attendanceService.getAttendanceForClass(classId, today);
+    const existingAttendance = await attendanceService.getAttendanceForClassAndDate(classId, today);
     const isAlreadyMarked = existingAttendance.length > 0;
 
     // Create attendance map for pre-populating form

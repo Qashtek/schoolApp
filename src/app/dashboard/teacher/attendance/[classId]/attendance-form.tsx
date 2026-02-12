@@ -54,39 +54,46 @@ export default function AttendanceForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (isAlreadyMarked) {
-      setErrorMessage('Attendance has already been marked for today.');
-      return;
-    }
-
     setIsSubmitting(true);
     setSuccessMessage('');
     setErrorMessage('');
 
     try {
-      const response = await fetch('/api/attendance', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          classId,
-          records: attendanceRecords,
-        }),
-      });
+      // Submit attendance for each student individually
+      const promises = attendanceRecords
+        .filter(record => !existingAttendance[record.studentId]) // Only submit for unmarked students
+        .map(record =>
+          fetch('/api/attendance', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              classId,
+              studentId: record.studentId,
+              status: record.status,
+            }),
+          }).then(response => {
+            if (!response.ok) {
+              return response.json().then(errorData => {
+                throw new Error(errorData.error || 'Failed to mark attendance for student');
+              });
+            }
+            return response.json();
+          })
+        );
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to mark attendance');
-      }
+      await Promise.all(promises);
 
-      const data = await response.json();
       setSuccessMessage('Attendance marked successfully!');
 
-      // Redirect back to teacher dashboard after a short delay
+      // Refresh the page to update existing attendance
+      router.refresh();
+
+      // Clear success message after 3-5 seconds
       setTimeout(() => {
-        router.push('/dashboard/teacher');
-      }, 2000);
+        setSuccessMessage('');
+      }, 3000);
     } catch (error) {
       console.error('Error submitting attendance:', error);
       setErrorMessage(
@@ -162,16 +169,24 @@ export default function AttendanceForm({
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <select
-                        value={record?.status || 'PRESENT'}
-                        onChange={(e) => handleStatusChange(student.id, e.target.value as AttendanceStatus)}
-                        className="text-sm border border-gray-300 rounded px-3 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        disabled={isAlreadyMarked}
-                      >
-                        <option value="PRESENT">Present</option>
-                        <option value="ABSENT">Absent</option>
-                        <option value="LATE">Late</option>
-                      </select>
+                      <div className="flex space-x-4">
+                        {(['PRESENT', 'ABSENT', 'LATE'] as AttendanceStatus[]).map((status) => (
+                          <label key={status} className="flex items-center">
+                            <input
+                              type="radio"
+                              name={`attendance-${student.id}`}
+                              value={status}
+                              checked={record?.status === status}
+                              onChange={() => handleStatusChange(student.id, status)}
+                              disabled={!!existingAttendance[student.id]}
+                              className="mr-2 text-blue-600 focus:ring-blue-500"
+                            />
+                            <span className="text-sm text-gray-700 capitalize">
+                              {status.toLowerCase()}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
                     </td>
                   </tr>
                 );

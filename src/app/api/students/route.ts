@@ -26,9 +26,9 @@ const getStudentsByClassSchema = z.object({
 export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions);
-    console.log('SESSION USER:', session?.user);
+    console.log('API SESSION USER:', session?.user);
 
-    if (!session?.token) {
+    if (!session?.user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -43,14 +43,16 @@ export async function GET(request: Request) {
     // Validate query parameters
     const validatedParams = getStudentsByClassSchema.parse(params);
 
+    const normalizedRole = String(session.user.role ?? '').toUpperCase();
+
     const user = {
       id: session.user.id as string,
-      role: session.user.role as Role,
-      email: session.token.email as string | undefined,
+      role: normalizedRole as Role,
+      email: session.user.email as string | undefined,
     };
 
     // Check if user is ADMIN
-    if (user.role !== 'ADMIN') {
+    if (normalizedRole !== 'ADMIN') {
       return NextResponse.json(
         { error: 'Forbidden: Only administrators can access this resource' },
         { status: 403 }
@@ -88,9 +90,9 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions);
-    console.log('SESSION USER:', session?.user);
+    console.log('API SESSION USER:', session?.user);
 
-    if (!session?.token) {
+    if (!session?.user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -109,14 +111,16 @@ export async function POST(request: Request) {
     // Validate input
     const validatedData = createStudentSchema.parse(body);
 
+    const normalizedRole = String(session.user.role ?? '').toUpperCase();
+
     const user = {
       id: session.user.id as string,
-      role: session.user.role as Role,
-      email: session.token.email as string | undefined,
+      role: normalizedRole as Role,
+      email: session.user.email as string | undefined,
     };
 
     // Check if user is ADMIN
-    if (user.role !== 'ADMIN') {
+    if (normalizedRole !== 'ADMIN') {
       return NextResponse.json(
         { error: 'Forbidden: Only administrators can create students' },
         { status: 403 }
