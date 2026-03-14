@@ -1,6 +1,7 @@
 import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { PrismaAdapter } from '@next-auth/prisma-adapter';
+import { compare } from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
 
 export type Role = 'ADMIN' | 'SUPER_ADMIN' | 'TEACHER' | 'STUDENT' | 'PARENT';
@@ -116,6 +117,16 @@ export const authOptions: NextAuthOptions = {
         });
 
         if (!user) {
+          return null;
+        }
+
+        if (!user.password) {
+          return null;
+        }
+
+        const isValidPassword = await compare(credentials.password, user.password);
+
+        if (!isValidPassword) {
           return null;
         }
 

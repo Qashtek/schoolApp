@@ -1,4 +1,5 @@
-import { Role } from '@/lib/auth';
+import type { Role } from '@/lib/auth';
+export type { Role } from '@/lib/auth';
 
 export type AuthenticatedUser = {
   id: string;

@@ -176,6 +176,37 @@ export class StudentService {
   }
 
   /**
+   * Get students that belong to a specific class
+   */
+  async getStudentsByClass(classId: string) {
+    const students = await prisma.student.findMany({
+      where: { classId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        class: {
+          select: {
+            id: true,
+            name: true,
+            grade: true,
+          },
+        },
+      },
+      orderBy: [
+        { lastName: 'asc' },
+        { firstName: 'asc' },
+      ],
+    });
+
+    return students;
+  }
+
+  /**
    * Update a student record
    * Only ADMIN users can update students
    */
