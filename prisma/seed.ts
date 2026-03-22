@@ -21,16 +21,13 @@ async function getOrCreateDefaultSchool() {
 }
 
 async function main() {
-  console.log('Starting database seed...');
-
   const school = await getOrCreateDefaultSchool();
-  console.log(`Default school ready: ${school.name} (${school.id})`);
 
   const adminUser = await prisma.user.findUnique({ where: { email: DEMO_ADMIN_EMAIL } });
 
   if (!adminUser) {
     const hashedPassword = await hash(DEMO_ADMIN_PASSWORD, 12);
-    const createdAdmin = await prisma.user.create({
+    await prisma.user.create({
       data: {
         email: DEMO_ADMIN_EMAIL,
         name: 'Admin User',
@@ -39,9 +36,6 @@ async function main() {
         schoolId: school.id,
       },
     });
-    console.log(
-      `Created default admin: ${createdAdmin.email} (password: ${DEMO_ADMIN_PASSWORD})`
-    );
   } else {
     const needsUpdate =
       adminUser.schoolId !== school.id || adminUser.role !== 'ADMIN' || !adminUser.password;
@@ -55,9 +49,6 @@ async function main() {
           password: adminUser.password ?? (await hash(DEMO_ADMIN_PASSWORD, 12)),
         },
       });
-      console.log(`Updated default admin: ${DEMO_ADMIN_EMAIL}`);
-    } else {
-      console.log(`Default admin already configured: ${DEMO_ADMIN_EMAIL}`);
     }
   }
 
@@ -69,7 +60,6 @@ async function main() {
         where: { id: teacher.id },
         data: { schoolId: school.id },
       });
-      console.log(`Assigned school to teacher: ${teacher.name} (${teacher.id})`);
     }
   }
 
@@ -77,13 +67,11 @@ async function main() {
   const usersWithoutSchool = await prisma.user.findMany({
     where: { schoolId: null },
   });
-  console.log(`Found ${usersWithoutSchool.length} users without schoolId`);
   for (const user of usersWithoutSchool) {
     await prisma.user.update({
       where: { id: user.id },
       data: { schoolId: school.id },
     });
-    console.log(`Assigned school to user: ${user.name} (${user.email})`);
   }
 
   // Assign all teachers with null schoolId to default school
@@ -91,13 +79,11 @@ async function main() {
     where: { schoolId: null },
     include: { user: true },
   });
-  console.log(`Found ${teachersWithoutSchool.length} teachers without schoolId`);
   for (const teacher of teachersWithoutSchool) {
     await prisma.teacher.update({
       where: { id: teacher.id },
       data: { schoolId: school.id },
     });
-    console.log(`Assigned school to teacher: ${teacher.user.name}`);
   }
 
   // Assign all students with null schoolId to default school
@@ -107,28 +93,23 @@ async function main() {
   const studentsWithNullSchoolId = await prisma.$queryRaw<Array<{ id: string }>>`
     SELECT id FROM students WHERE schoolId IS NULL
   `;
-  console.log(`Found ${studentsWithNullSchoolId.length} students with NULL schoolId`);
   for (const student of studentsWithNullSchoolId) {
     await prisma.student.update({
       where: { id: student.id },
       data: { schoolId: school.id },
     });
-    console.log(`Assigned school to student: ${student.id}`);
   }
 
   // Assign all classes with null schoolId to default school
   const classesWithoutSchool = await prisma.class.findMany({
     where: { schoolId: null },
   });
-  console.log(`Found ${classesWithoutSchool.length} classes without schoolId`);
   for (const cls of classesWithoutSchool) {
     await prisma.class.update({
       where: { id: cls.id },
       data: { schoolId: school.id },
     });
-    console.log(`Assigned school to class: ${cls.name}`);
   }
-  console.log('Database seed completed successfully');
 }
 
 main()

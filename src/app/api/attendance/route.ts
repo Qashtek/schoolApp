@@ -59,7 +59,6 @@ export async function POST(request: Request) {
   const formRequest = isFormRequest(request);
   try {
     const session = await getServerSession(authOptions);
-    console.log('API SESSION USER:', session?.user);
 
     if (!session?.user || session.user.role !== 'TEACHER') {
       if (formRequest) {
@@ -214,7 +213,6 @@ export async function POST(request: Request) {
 export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions);
-    console.log('API SESSION USER:', session?.user);
 
     if (!session?.user || session.user.role !== 'TEACHER') {
       return NextResponse.json(

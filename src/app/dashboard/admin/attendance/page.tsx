@@ -25,16 +25,11 @@ export default async function AdminAttendancePage({
     throw new Error('Admin not assigned to school');
   }
 
-  console.log("SCHOOL ID:", session.user.schoolId);
-
   // Fetch all classes for the admin's school
   const classes = await prisma.class.findMany({
     where: { schoolId },
     orderBy: { name: 'asc' },
   });
-
-  console.log("CLASSES:", classes);
-  console.log("SEARCH PARAMS:", searchParams);
 
   // Handle filters
   const selectedClassId = searchParams.classId || (classes.length > 0 ? classes[0].id : undefined);

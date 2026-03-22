@@ -26,7 +26,6 @@ const getStudentsByClassSchema = z.object({
 export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions);
-    console.log('API SESSION USER:', session?.user);
 
     if (!session?.user) {
       return NextResponse.json(
@@ -90,7 +89,6 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions);
-    console.log('API SESSION USER:', session?.user);
 
     if (!session?.user) {
       return NextResponse.json(
