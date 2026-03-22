@@ -41,8 +41,20 @@ export default async function AttendancePage({ params }: PageProps) {
 
   try {
     // Check if teacher is assigned to this class
-    const teacherClasses = await teacherService.getTeacherClasses(session.user.id);
-    const isAssigned = teacherClasses.some(cls => cls.id === classId);
+    const teacher = await teacherService.getTeacherByUserId(session.user.id);
+    const isAssigned = teacher.classes.some((entry) => {
+      const record = entry as { id?: string; classId?: string; class?: { id?: string } };
+
+      if (record.class?.id) {
+        return record.class.id === classId;
+      }
+
+      if (record.classId) {
+        return record.classId === classId;
+      }
+
+      return record.id === classId;
+    });
 
     if (!isAssigned) {
       redirect('/dashboard/teacher');

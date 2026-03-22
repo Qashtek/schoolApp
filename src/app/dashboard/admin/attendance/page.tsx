@@ -25,26 +25,37 @@ export default async function AdminAttendancePage({
     throw new Error('Admin not assigned to school');
   }
 
+  console.log("SCHOOL ID:", session.user.schoolId);
+
   // Fetch all classes for the admin's school
   const classes = await prisma.class.findMany({
     where: { schoolId },
     orderBy: { name: 'asc' },
   });
 
-  // Handle filters
-  const selectedClassId = searchParams.classId;
-  const selectedDate = searchParams.date
-    ? new Date(searchParams.date)
-    : new Date();
-  selectedDate.setHours(0, 0, 0, 0);
+  console.log("CLASSES:", classes);
+  console.log("SEARCH PARAMS:", searchParams);
 
-  // Fetch attendance records only if classId exists
+  // Handle filters
+  const selectedClassId = searchParams.classId || (classes.length > 0 ? classes[0].id : undefined);
+  // Determine start of day for the provided date (or today)
+  const dateParam = searchParams.date || null;
+  const parsedDate = dateParam ? new Date(dateParam) : new Date();
+  const startOfDay = new Date(parsedDate);
+  startOfDay.setHours(0, 0, 0, 0);
+  const nextDay = new Date(startOfDay);
+  nextDay.setDate(nextDay.getDate() + 1);
+
+  // Fetch attendance records only if classId exists, using gte/lt range
   const attendanceRecords = selectedClassId
     ? await prisma.attendance.findMany({
         where: {
           classId: selectedClassId,
           schoolId,
-          date: selectedDate,
+          date: {
+            gte: startOfDay,
+            lt: nextDay,
+          },
         },
         include: {
           student: {
@@ -71,6 +82,7 @@ export default async function AdminAttendancePage({
   let present = 0;
   let absent = 0;
   let late = 0;
+  let attendancePercentage = '0.0';
 
   if (selectedClassId) {
     // Get total students in class
@@ -88,11 +100,18 @@ export default async function AdminAttendancePage({
 
     // Calculate summary
     const total = attendanceRecords.length;
-    present = attendanceRecords.filter(a => a.status === 'PRESENT').length;
-    absent = attendanceRecords.filter(a => a.status === 'ABSENT').length;
-    late = attendanceRecords.filter(a => a.status === 'LATE').length;
+    present = attendanceRecords.filter((a) => a.status === 'PRESENT').length;
+    absent = attendanceRecords.filter((a) => a.status === 'ABSENT').length;
+    late = attendanceRecords.filter((a) => a.status === 'LATE').length;
 
-    const percentage = total > 0 ? ((present / total) * 100).toFixed(1) : 0;
+    // Prefer percentage over total students when possible
+    const pct =
+      totalStudents > 0
+        ? (present / totalStudents) * 100
+        : total > 0
+        ? (present / total) * 100
+        : 0;
+    attendancePercentage = pct.toFixed(1);
   }
 
   return (
@@ -131,7 +150,7 @@ export default async function AdminAttendancePage({
               type="date"
               id="date"
               name="date"
-              defaultValue={searchParams.date || ''}
+              defaultValue={dateParam ? new Date(dateParam).toISOString().slice(0, 10) : startOfDay.toISOString().slice(0, 10)}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
             />
           </div>
@@ -147,8 +166,8 @@ export default async function AdminAttendancePage({
       </form>
 
       {/* Summary Cards */}
-      {selectedClassId && searchParams.date && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      {selectedClassId && (
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
           <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
             <div className="flex items-center">
               <div className="flex-shrink-0">
@@ -201,11 +220,24 @@ export default async function AdminAttendancePage({
               </div>
             </div>
           </div>
+          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-indigo-500 rounded-full flex items-center justify-center">
+                  <span className="text-white text-sm font-medium">%</span>
+                </div>
+              </div>
+              <div className="ml-4">
+                <dt className="text-sm font-medium text-gray-500 truncate">Attendance %</dt>
+                <dd className="text-lg font-semibold text-gray-900">{attendancePercentage}%</dd>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
       {/* Attendance Table */}
-      {selectedClassId && searchParams.date && (
+      {selectedClassId && (
         <div className="bg-white shadow-sm border border-gray-100 rounded-lg overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200">
             <h3 className="text-lg font-medium text-gray-900">Attendance Records</h3>

@@ -6,7 +6,7 @@ A production-oriented school management system built for a single school using m
 
 - **Frontend**: Next.js App Router with TypeScript
 - **Styling**: Tailwind CSS
-- **Database**: PostgreSQL (local)
+- **Database**: SQLite (local)
 - **ORM**: Prisma
 - **Authentication**: Auth.js (NextAuth)
 
@@ -23,7 +23,6 @@ A production-oriented school management system built for a single school using m
 ### Prerequisites
 
 - Node.js (version 18 or higher)
-- PostgreSQL (local installation)
 - npm or yarn
 
 ### Installation
@@ -40,11 +39,13 @@ A production-oriented school management system built for a single school using m
    ```
 
 3. Set up the database:
-   - Ensure PostgreSQL is running locally
-   - Update the database URL in `.env` file
    - Run Prisma migrations:
      ```bash
      npx prisma migrate dev
+     ```
+   - (Optional) Seed a default admin:
+     ```bash
+     npx prisma db seed
      ```
 
 4. Run the development server:
@@ -58,17 +59,21 @@ A production-oriented school management system built for a single school using m
 
 - `src/app/` - Next.js App Router pages and API routes
 - `src/lib/` - Utilities, services, and validators
-- `src/prisma/` - Database schema and migrations
+- `prisma/` - Database schema, migrations, and seed
 
 ## Environment Variables
 
 Create a `.env` file in the root directory with the following variables:
 
 ```
-DATABASE_URL="postgresql://username:password@localhost:5432/schoolapp"
 NEXTAUTH_SECRET="your-secret-key"
 NEXTAUTH_URL="http://localhost:3000"
 ```
+
+## Demo Login
+
+- Email: `admin@school.edu`
+- Password: `admin123`
 
 ## Contributing
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Save, User, Mail, GraduationCap } from 'lucide-react';
 
@@ -55,6 +55,7 @@ export default function NewStudentPage() {
   const [formData, setFormData] = useState<FormData>(INITIAL_FORM_DATA);
   const [errors, setErrors] = useState<FormErrors>({});
   const [success, setSuccess] = useState('');
+  const successRef = useRef<HTMLDivElement | null>(null);
 
   // Fetch classes on component mount
   useEffect(() => {
@@ -71,6 +72,13 @@ export default function NewStudentPage() {
     };
     fetchClasses();
   }, []);
+
+  useEffect(() => {
+    if (success && successRef.current) {
+      successRef.current.focus();
+      successRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [success]);
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
@@ -173,7 +181,11 @@ export default function NewStudentPage() {
               </div>
             )}
             {success && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <div
+                ref={successRef}
+                tabIndex={-1}
+                className="bg-green-50 border border-green-200 rounded-lg p-4 outline-none"
+              >
                 <p className="text-sm text-green-700">{success}</p>
               </div>
             )}
