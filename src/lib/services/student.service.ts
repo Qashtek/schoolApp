@@ -20,6 +20,7 @@ export interface CreateStudentInput {
 
 export interface UpdateStudentInput {
   grade?: string;
+  classId?: string;
   class?: string;
 }
 
@@ -34,7 +35,7 @@ export class StudentService {
    * Check if the current user has permission to perform the action
    */
   private requireAdmin(): void {
-    if (!isAdmin(this.user)) {
+    if (!isAdmin(this.user.role)) {
       throw new Error('Unauthorized: Only administrators can perform this action');
     }
   }
@@ -144,13 +145,15 @@ export class StudentService {
    */
   async getAllStudents(options?: {
     grade?: string;
+    classId?: string;
     class?: string;
     skip?: number;
     take?: number;
   }) {
+    const resolvedClassId = options?.classId || options?.class;
     const where = {
       ...(options?.grade && { grade: options.grade }),
-      ...(options?.class && { class: options.class }),
+      ...(resolvedClassId && { classId: resolvedClassId }),
     };
 
     const [students, count] = await prisma.$transaction([
@@ -225,7 +228,7 @@ export class StudentService {
       where: { id },
       data: {
         grade: data.grade,
-        class: data.class,
+        classId: data.classId || data.class,
       },
       include: {
         user: {

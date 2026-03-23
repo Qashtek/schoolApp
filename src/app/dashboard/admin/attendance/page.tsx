@@ -1,12 +1,44 @@
 import { getServerSession } from 'next-auth';
 import { redirect } from 'next/navigation';
 import { authOptions } from '@/lib/auth';
-import { ClassService } from '@/lib/services/class.service';
 import { prisma } from '@/lib/prisma';
 
 interface SearchParams {
   classId?: string;
   date?: string;
+}
+
+function parseDateParam(dateParam?: string): Date | null {
+  if (!dateParam) {
+    return null;
+  }
+
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateParam);
+  if (!match) {
+    return null;
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const parsed = new Date(year, month - 1, day);
+
+  if (
+    parsed.getFullYear() !== year ||
+    parsed.getMonth() !== month - 1 ||
+    parsed.getDate() !== day
+  ) {
+    return null;
+  }
+
+  return parsed;
+}
+
+function formatDateForInput(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 export default async function AdminAttendancePage({
@@ -32,14 +64,17 @@ export default async function AdminAttendancePage({
   });
 
   // Handle filters
-  const selectedClassId = searchParams.classId || (classes.length > 0 ? classes[0].id : undefined);
-  // Determine start of day for the provided date (or today)
-  const dateParam = searchParams.date || null;
-  const parsedDate = dateParam ? new Date(dateParam) : new Date();
-  const startOfDay = new Date(parsedDate);
-  startOfDay.setHours(0, 0, 0, 0);
+  const selectedClassId = searchParams.classId || classes[0]?.id;
+  // Determine start of day for the provided date (or today), parsing in local time.
+  const selectedDate = parseDateParam(searchParams.date) ?? new Date();
+  const startOfDay = new Date(
+    selectedDate.getFullYear(),
+    selectedDate.getMonth(),
+    selectedDate.getDate()
+  );
   const nextDay = new Date(startOfDay);
   nextDay.setDate(nextDay.getDate() + 1);
+  const dateInputValue = formatDateForInput(startOfDay);
 
   // Fetch attendance records only if classId exists, using gte/lt range
   const attendanceRecords = selectedClassId
@@ -52,62 +87,27 @@ export default async function AdminAttendancePage({
             lt: nextDay,
           },
         },
-        include: {
+        select: {
+          id: true,
+          status: true,
           student: {
-            include: {
-              user: {
-                select: {
-                  name: true,
-                },
-              },
+            select: {
+              firstName: true,
+              lastName: true,
             },
           },
         },
-        orderBy: {
-          student: {
-            user: {
-              name: 'asc',
-            },
-          },
-        },
+        orderBy: [{ student: { lastName: 'asc' } }, { student: { firstName: 'asc' } }],
       })
     : [];
 
-  let totalStudents = 0;
-  let present = 0;
-  let absent = 0;
-  let late = 0;
-  let attendancePercentage = '0.0';
-
-  if (selectedClassId) {
-    // Get total students in class
-    const classWithCount = await prisma.class.findUnique({
-      where: { id: selectedClassId },
-      select: {
-        _count: {
-          select: {
-            students: true,
-          },
-        },
-      },
-    });
-    totalStudents = classWithCount?._count.students || 0;
-
-    // Calculate summary
-    const total = attendanceRecords.length;
-    present = attendanceRecords.filter((a) => a.status === 'PRESENT').length;
-    absent = attendanceRecords.filter((a) => a.status === 'ABSENT').length;
-    late = attendanceRecords.filter((a) => a.status === 'LATE').length;
-
-    // Prefer percentage over total students when possible
-    const pct =
-      totalStudents > 0
-        ? (present / totalStudents) * 100
-        : total > 0
-        ? (present / total) * 100
-        : 0;
-    attendancePercentage = pct.toFixed(1);
-  }
+  const totalStudents = attendanceRecords.length;
+  const present = attendanceRecords.filter((record) => record.status === 'PRESENT').length;
+  const absent = attendanceRecords.filter((record) => record.status === 'ABSENT').length;
+  const late = attendanceRecords.filter((record) => record.status === 'LATE').length;
+  const attendancePercentage = (
+    totalStudents > 0 ? (present / totalStudents) * 100 : 0
+  ).toFixed(1);
 
   return (
     <div className="space-y-6">
@@ -129,12 +129,12 @@ export default async function AdminAttendancePage({
               defaultValue={selectedClassId || ''}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
             >
-              <option value="">Select a class</option>
               {classes.map((cls) => (
                 <option key={cls.id} value={cls.id}>
-                  {cls.name} ({cls.grade})
+                  {cls.name}
                 </option>
               ))}
+              {classes.length === 0 && <option value="">No classes available</option>}
             </select>
           </div>
           <div>
@@ -145,7 +145,7 @@ export default async function AdminAttendancePage({
               type="date"
               id="date"
               name="date"
-              defaultValue={dateParam ? new Date(dateParam).toISOString().slice(0, 10) : startOfDay.toISOString().slice(0, 10)}
+              defaultValue={dateInputValue}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
             />
           </div>
@@ -254,7 +254,7 @@ export default async function AdminAttendancePage({
                   {attendanceRecords.map((record) => (
                     <tr key={record.id}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {record.student.user.name}
+                        {record.student.firstName} {record.student.lastName}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span
@@ -263,7 +263,9 @@ export default async function AdminAttendancePage({
                               ? 'bg-green-100 text-green-800'
                               : record.status === 'ABSENT'
                               ? 'bg-red-100 text-red-800'
-                              : 'bg-yellow-100 text-yellow-800'
+                              : record.status === 'LATE'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : 'bg-gray-100 text-gray-800'
                           }`}
                         >
                           {record.status}
@@ -276,7 +278,7 @@ export default async function AdminAttendancePage({
             </div>
           ) : (
             <div className="px-6 py-4 text-center text-gray-500">
-              No attendance recorded for this date.
+              No attendance records found for the selected class and date.
             </div>
           )}
         </div>
