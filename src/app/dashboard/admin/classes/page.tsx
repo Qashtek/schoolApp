@@ -1,13 +1,14 @@
 import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { isAdmin } from '@/lib/permissions';
 import { ClassService } from '@/lib/services/class.service';
 import Link from 'next/link';
 
 export default async function AdminClassesPage() {
   const session = await getServerSession(authOptions);
 
-  if (!session?.user?.role || session.user.role !== 'ADMIN') {
+  if (!session?.user?.role || !isAdmin(session.user.role)) {
     redirect('/dashboard');
   }
 
@@ -16,6 +17,7 @@ export default async function AdminClassesPage() {
     email: session.user.email,
     name: session.user.name,
     role: session.user.role,
+    schoolId: session.user.schoolId,
   });
 
   const { classes } = await classService.getAllClasses();

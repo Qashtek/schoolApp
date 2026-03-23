@@ -18,6 +18,7 @@
 - [x] Ensure all data fetching respects school boundaries for security
 
 ## Testing
+- [ ] Before testing/production: remove hardcoded demo admin credentials from `src/lib/auth.ts`
 - [ ] Test page access at `/dashboard/admin/attendance`
 - [ ] Verify admin role restriction
 - [ ] Verify data is filtered by schoolId from session

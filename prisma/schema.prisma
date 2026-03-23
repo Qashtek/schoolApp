@@ -67,6 +67,7 @@ model Teacher {
 
   // Relations
   classes     TeacherClass[]
+  subjects    TeacherSubject[]
   grades      Grade[]
   attendances Attendance[]
 
@@ -98,6 +99,7 @@ model School {
   teachers    Teacher[]
   classes     Class[]
   students    Student[]
+  subjects    Subject[]
   attendances Attendance[]
 
   @@map("schools")
@@ -115,11 +117,30 @@ model Class {
 
   // Relations
   teachers    TeacherClass[]
+  subjects    ClassSubject[]
   students    Student[]
   attendances Attendance[]
   grades      Grade[]
 
   @@map("classes")
+}
+
+model Subject {
+  id          String   @id @default(cuid())
+  name        String
+  code        String
+  description String?
+  schoolId    String
+  school      School   @relation(fields: [schoolId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  classes  ClassSubject[]
+  teachers TeacherSubject[]
+
+  @@unique([schoolId, code])
+  @@map("subjects")
 }
 
 // Join table for Teacher-Class assignment
@@ -133,6 +154,32 @@ model TeacherClass {
 
   @@unique([teacherId, classId])
   @@map("teacher_classes")
+}
+
+// Join table for Class-Subject assignment
+model ClassSubject {
+  id        String   @id @default(cuid())
+  classId   String
+  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  subjectId String
+  subject   Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([classId, subjectId])
+  @@map("class_subjects")
+}
+
+// Join table for Teacher-Subject assignment
+model TeacherSubject {
+  id        String   @id @default(cuid())
+  teacherId String
+  teacher   Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  subjectId String
+  subject   Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([teacherId, subjectId])
+  @@map("teacher_subjects")
 }
 
 model Attendance {

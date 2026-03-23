@@ -78,21 +78,22 @@ export default async function AdminDashboard() {
           </section>
         </Link>
 
-        {/* Academic Sessions Section */}
-        <section className="bg-white rounded-lg shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow duration-200">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-amber-50 rounded-lg">
-              <Calendar className="w-6 h-6 text-amber-600" />
+        {/* Subjects Section */}
+        <Link href="/dashboard/admin/subjects" className="block">
+          <section className="bg-white rounded-lg shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow duration-200 h-full">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-amber-50 rounded-lg">
+                <Calendar className="w-6 h-6 text-amber-600" />
+              </div>
+              <div>
+                <h2 className="text-lg font-medium text-gray-900">Subjects</h2>
+                <p className="text-sm text-gray-500">Manage subject catalog</p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-lg font-medium text-gray-900">Academic Sessions</h2>
-              <p className="text-sm text-gray-500">Configure academic terms</p>
-            </div>
-          </div>
-        </section>
+          </section>
+        </Link>
 
       </div>
     </div>
   );
 }
-

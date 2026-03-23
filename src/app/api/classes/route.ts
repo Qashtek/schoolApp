@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { isAdmin, isSuperAdmin } from '@/lib/permissions';
 import { ClassService } from '@/lib/services/class.service';
 import { createClassSchema } from '@/lib/validators/class';
 
@@ -13,7 +14,7 @@ export async function GET() {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user?.role || session.user.role !== 'ADMIN') {
+    if (!session?.user?.role || !isAdmin(session.user.role)) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -25,13 +26,22 @@ export async function GET() {
       email: session.user.email,
       name: session.user.name,
       role: session.user.role,
+      schoolId: session.user.schoolId,
     });
 
-    const { classes } = await classService.getAllClasses();
+    const { classes } = await classService.getAllClasses({
+      schoolId: isSuperAdmin(session.user.role) ? undefined : session.user.schoolId,
+    });
 
     return NextResponse.json(classes);
   } catch (error) {
     console.error('Error fetching classes:', error);
+    if (error instanceof Error) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.message.startsWith('Unauthorized') ? 403 : 400 }
+      );
+    }
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -48,7 +58,7 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user?.role || session.user.role !== 'ADMIN') {
+    if (!session?.user?.role || !isAdmin(session.user.role)) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -71,9 +81,17 @@ export async function POST(request: NextRequest) {
       email: session.user.email,
       name: session.user.name,
       role: session.user.role,
+      schoolId: session.user.schoolId,
     });
 
-    const newClass = await classService.createClass(validationResult.data);
+    const newClass = await classService.createClass(
+      isSuperAdmin(session.user.role)
+        ? validationResult.data
+        : {
+            ...validationResult.data,
+            schoolId: session.user.schoolId,
+          }
+    );
 
     return NextResponse.json(newClass, { status: 201 });
   } catch (error) {

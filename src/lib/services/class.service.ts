@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { AuthenticatedUser, isAdmin } from '@/lib/permissions';
+import { AuthenticatedUser, isAdmin, isSuperAdmin } from '@/lib/permissions';
 
 export interface CreateClassInput {
   name: string;
@@ -29,6 +29,22 @@ export class ClassService {
     }
   }
 
+  private resolveSchoolScope(requestedSchoolId?: string): string | undefined {
+    if (isSuperAdmin(this.user)) {
+      return requestedSchoolId;
+    }
+
+    if (!this.user.schoolId) {
+      throw new Error('Unauthorized: Admin is not assigned to a school');
+    }
+
+    if (requestedSchoolId && requestedSchoolId !== this.user.schoolId) {
+      throw new Error('Unauthorized: Cannot access classes from another school');
+    }
+
+    return this.user.schoolId;
+  }
+
   /**
    * Create a new class
    * Only ADMIN users can create classes
@@ -36,22 +52,25 @@ export class ClassService {
   async createClass(data: CreateClassInput) {
     this.requireAdmin();
 
-    // If schoolId is provided, verify school exists
-    if (data.schoolId) {
-      const school = await prisma.school.findUnique({
-        where: { id: data.schoolId },
-      });
+    const schoolId = this.resolveSchoolScope(data.schoolId);
 
-      if (!school) {
-        throw new Error('School not found');
-      }
+    if (!schoolId) {
+      throw new Error('School is required to create a class');
+    }
+
+    const school = await prisma.school.findUnique({
+      where: { id: schoolId },
+    });
+
+    if (!school) {
+      throw new Error('School not found');
     }
 
     // Prevent duplicate class names within the same school
     const existingClass = await prisma.class.findFirst({
       where: {
         name: data.name,
-        schoolId: data.schoolId,
+        schoolId,
       },
     });
 
@@ -64,7 +83,7 @@ export class ClassService {
         name: data.name,
         description: data.description,
         grade: data.grade,
-        schoolId: data.schoolId,
+        schoolId,
       },
       include: {
         school: true,
@@ -109,6 +128,13 @@ export class ClassService {
       throw new Error('Class not found');
     }
 
+    if (!isSuperAdmin(this.user)) {
+      const schoolId = this.resolveSchoolScope(classExists.schoolId ?? undefined);
+      if (!schoolId || classExists.schoolId !== schoolId) {
+        throw new Error('Unauthorized: Cannot assign teachers for another school');
+      }
+    }
+
     // Verify teacher exists
     const teacherExists = await prisma.teacher.findUnique({
       where: { id: data.teacherId },
@@ -116,6 +142,18 @@ export class ClassService {
 
     if (!teacherExists) {
       throw new Error('Teacher not found');
+    }
+
+    if (!isSuperAdmin(this.user) && teacherExists.schoolId !== this.user.schoolId) {
+      throw new Error('Unauthorized: Cannot assign teachers from another school');
+    }
+
+    if (
+      classExists.schoolId &&
+      teacherExists.schoolId &&
+      classExists.schoolId !== teacherExists.schoolId
+    ) {
+      throw new Error('Teacher and class must belong to the same school');
     }
 
     // Check if teacher is already assigned to this class
@@ -164,8 +202,10 @@ export class ClassService {
     skip?: number;
     take?: number;
   }) {
+    const schoolId = this.resolveSchoolScope(options?.schoolId);
+
     const where = {
-      ...(options?.schoolId && { schoolId: options.schoolId }),
+      ...(schoolId && { schoolId }),
     };
 
     const [classes, count] = await prisma.$transaction([
@@ -243,7 +283,13 @@ export class ClassService {
       throw new Error('Class not found');
     }
 
+    if (!isSuperAdmin(this.user)) {
+      const schoolId = this.resolveSchoolScope(classRecord.schoolId ?? undefined);
+      if (!schoolId || classRecord.schoolId !== schoolId) {
+        throw new Error('Unauthorized: Cannot access classes from another school');
+      }
+    }
+
     return classRecord;
   }
 }
-

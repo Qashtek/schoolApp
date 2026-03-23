@@ -1,6 +1,7 @@
 import { getServerSession } from 'next-auth';
 import { redirect } from 'next/navigation';
 import { authOptions } from '@/lib/auth';
+import { isAdmin } from '@/lib/permissions';
 import { prisma } from '@/lib/prisma';
 
 interface SearchParams {
@@ -48,7 +49,7 @@ export default async function AdminAttendancePage({
 }) {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== 'ADMIN') {
+  if (!session?.user?.role || !isAdmin(session.user.role)) {
     redirect('/login');
   }
 

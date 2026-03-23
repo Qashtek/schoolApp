@@ -17,6 +17,7 @@ function resolveRole(userOrRole: UserOrRole): Role {
 
 export function hasPermission(user: AuthenticatedUser, permission: string): boolean {
   const rolePermissions: Record<string, string[]> = {
+    SUPER_ADMIN: ['*'],
     ADMIN: ['*'],
     TEACHER: ['attendance:mark', 'attendance:view', 'grades:create', 'grades:view'],
     STUDENT: ['attendance:view', 'grades:view'],
@@ -31,8 +32,13 @@ export function isTeacher(userOrRole: UserOrRole): boolean {
   return resolveRole(userOrRole) === 'TEACHER';
 }
 
+export function isSuperAdmin(userOrRole: UserOrRole): boolean {
+  return resolveRole(userOrRole) === 'SUPER_ADMIN';
+}
+
 export function isAdmin(userOrRole: UserOrRole): boolean {
-  return resolveRole(userOrRole) === 'ADMIN';
+  const role = resolveRole(userOrRole);
+  return role === 'ADMIN' || role === 'SUPER_ADMIN';
 }
 
 export function isStudent(userOrRole: UserOrRole): boolean {

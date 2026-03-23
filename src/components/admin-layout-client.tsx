@@ -2,7 +2,7 @@
 
 import { Session } from 'next-auth';
 import Link from 'next/link';
-import { LayoutDashboard, Users, BookOpen, GraduationCap, LogOut, CheckCircle } from 'lucide-react';
+import { LayoutDashboard, Users, BookOpen, GraduationCap, LogOut, CheckCircle, Calendar } from 'lucide-react';
 import { useEffect } from 'react';
 import { signOut } from 'next-auth/react';
 
@@ -65,6 +65,13 @@ export function AdminLayoutClient({ session, children }: AdminLayoutClientProps)
           >
             <BookOpen className="w-5 h-5" />
             Classes
+          </Link>
+          <Link
+            href="/dashboard/admin/subjects"
+            className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
+          >
+            <Calendar className="w-5 h-5" />
+            Subjects
           </Link>
           <Link
             href="/dashboard/admin/attendance"

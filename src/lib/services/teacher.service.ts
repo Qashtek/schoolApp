@@ -147,7 +147,7 @@ export class TeacherService {
     take?: number;
   }) {
     // Non-admin users can only see active teachers
-    const isActiveFilter = this.user.role === 'ADMIN' 
+    const isActiveFilter = isAdmin(this.user.role)
       ? options?.isActive 
       : true;
 

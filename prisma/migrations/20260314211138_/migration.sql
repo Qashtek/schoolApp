@@ -22,7 +22,31 @@ CREATE TABLE "new_attendances" (
     CONSTRAINT "attendances_teacherId_fkey" FOREIGN KEY ("teacherId") REFERENCES "teachers" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT "attendances_schoolId_fkey" FOREIGN KEY ("schoolId") REFERENCES "schools" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
-INSERT INTO "new_attendances" ("classId", "createdAt", "date", "id", "status", "studentId", "teacherId", "updatedAt") SELECT "classId", "createdAt", "date", "id", "status", "studentId", "teacherId", "updatedAt" FROM "attendances";
+INSERT INTO "new_attendances" (
+    "classId",
+    "createdAt",
+    "date",
+    "id",
+    "schoolId",
+    "status",
+    "studentId",
+    "teacherId",
+    "updatedAt"
+)
+SELECT
+    a."classId",
+    a."createdAt",
+    a."date",
+    a."id",
+    COALESCE(c."schoolId", t."schoolId", s."schoolId") AS "schoolId",
+    a."status",
+    a."studentId",
+    a."teacherId",
+    a."updatedAt"
+FROM "attendances" a
+LEFT JOIN "classes" c ON c."id" = a."classId"
+LEFT JOIN "teachers" t ON t."id" = a."teacherId"
+LEFT JOIN "students" s ON s."id" = a."studentId";
 DROP TABLE "attendances";
 ALTER TABLE "new_attendances" RENAME TO "attendances";
 CREATE UNIQUE INDEX "attendances_studentId_classId_date_key" ON "attendances"("studentId", "classId", "date");

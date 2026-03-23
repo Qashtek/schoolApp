@@ -276,7 +276,7 @@ export class AttendanceService {
     }
 
     // Verify student exists and is in the class
-    const student = await prisma.student.findUnique({
+    const student = await prisma.student.findFirst({
       where: {
         id: data.studentId,
         classId: data.classId,

@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { StudentService } from '@/lib/services/student.service';
 import { authOptions, Role } from '@/lib/auth';
+import { isAdmin } from '@/lib/permissions';
 
 // Input validation schema for creating student
 const createStudentSchema = z.object({
@@ -51,7 +52,7 @@ export async function GET(request: Request) {
     };
 
     // Check if user is ADMIN
-    if (normalizedRole !== 'ADMIN') {
+    if (!isAdmin(normalizedRole as Role)) {
       return NextResponse.json(
         { error: 'Forbidden: Only administrators can access this resource' },
         { status: 403 }
@@ -118,7 +119,7 @@ export async function POST(request: Request) {
     };
 
     // Check if user is ADMIN
-    if (normalizedRole !== 'ADMIN') {
+    if (!isAdmin(normalizedRole as Role)) {
       return NextResponse.json(
         { error: 'Forbidden: Only administrators can create students' },
         { status: 403 }

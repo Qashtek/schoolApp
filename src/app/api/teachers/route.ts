@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { TeacherService } from '@/lib/services/teacher.service';
 import { authOptions, Role } from '@/lib/auth';
+import { isAdmin } from '@/lib/permissions';
 
 // Input validation schema for creating a teacher
 const createTeacherSchema = z.object({
@@ -38,7 +39,7 @@ export async function GET(request: Request) {
     const userRole = session.user.role as Role;
 
     // Only ADMIN or SUPER_ADMIN can list teachers
-    if (userRole !== 'ADMIN' && userRole !== 'SUPER_ADMIN') {
+    if (!isAdmin(userRole)) {
       return NextResponse.json(
         { error: 'Forbidden: Only administrators can list teachers' },
         { status: 403 }
@@ -114,7 +115,7 @@ export async function POST(request: Request) {
     const userRole = session.user.role as Role;
 
     // Only ADMIN can create teachers
-    if (userRole !== 'ADMIN') {
+    if (!isAdmin(userRole)) {
       return NextResponse.json(
         { error: 'Forbidden: Only administrators can create teachers' },
         { status: 403 }
@@ -189,7 +190,7 @@ export async function DELETE(request: Request) {
     const userRole = session.user.role as Role;
 
     // Only ADMIN can delete users
-    if (userRole !== 'ADMIN' && userRole !== 'SUPER_ADMIN') {
+    if (!isAdmin(userRole)) {
       return NextResponse.json(
         { error: 'Forbidden: Only administrators can delete users' },
         { status: 403 }
