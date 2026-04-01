@@ -2,7 +2,15 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, GraduationCap, BookOpen, Calendar, CheckCircle } from 'lucide-react';
+import {
+  LayoutDashboard,
+  Users,
+  GraduationCap,
+  BookOpen,
+  Calendar,
+  CalendarDays,
+  CheckCircle,
+} from 'lucide-react';
 
 const navItems = [
   { label: 'Dashboard', href: '/dashboard/admin', icon: LayoutDashboard },
@@ -10,6 +18,7 @@ const navItems = [
   { label: 'Teachers', href: '/dashboard/admin/teachers', icon: GraduationCap },
   { label: 'Classes', href: '/dashboard/admin/classes', icon: BookOpen },
   { label: 'Subjects', href: '/dashboard/admin/subjects', icon: Calendar },
+  { label: 'Academic Sessions', href: '/dashboard/admin/sessions', icon: CalendarDays },
   { label: 'Attendance', href: '/dashboard/admin/attendance', icon: CheckCircle },
 ];
 
