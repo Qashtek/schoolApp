@@ -10,6 +10,7 @@ import {
   Calendar,
   CalendarDays,
   CheckCircle,
+  FileText,
 } from 'lucide-react';
 
 const navItems = [
@@ -20,6 +21,7 @@ const navItems = [
   { label: 'Subjects', href: '/dashboard/admin/subjects', icon: Calendar },
   { label: 'Academic Sessions', href: '/dashboard/admin/sessions', icon: CalendarDays },
   { label: 'Attendance', href: '/dashboard/admin/attendance', icon: CheckCircle },
+  { label: 'Grades', href: '/dashboard/admin/grades', icon: FileText },
 ];
 
 export function AdminNav() {

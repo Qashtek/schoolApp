@@ -1,12 +1,21 @@
 import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
-import { compare } from 'bcryptjs';
+import { compare, hash } from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
 
 export type Role = 'ADMIN' | 'SUPER_ADMIN' | 'TEACHER' | 'STUDENT' | 'PARENT';
 const DEMO_ADMIN_EMAIL = 'admin@school.edu';
 const DEMO_ADMIN_PASSWORD = 'admin123';
 const DEMO_SCHOOL_NAME = 'Demo School';
+const VALID_ROLES: Role[] = ['ADMIN', 'SUPER_ADMIN', 'TEACHER', 'STUDENT', 'PARENT'];
+
+function normalizeRole(value: unknown): Role | null {
+  const normalized = String(value ?? '').trim().toUpperCase();
+  if (VALID_ROLES.includes(normalized as Role)) {
+    return normalized as Role;
+  }
+  return null;
+}
 
 // Extend the default session user type
 declare module 'next-auth' {
@@ -122,15 +131,50 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        const isValidPassword = await compare(credentials.password, user.password);
+        let isValidPassword = false;
+
+        try {
+          isValidPassword = await compare(credentials.password, user.password);
+        } catch {
+          isValidPassword = false;
+        }
+
+        // Backward-compatible fallback for legacy plain-text passwords.
+        if (!isValidPassword && credentials.password === user.password) {
+          isValidPassword = true;
+
+          // Upgrade to a bcrypt hash after successful legacy login.
+          const hashedPassword = await hash(credentials.password, 12);
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { password: hashedPassword },
+          });
+        }
 
         if (!isValidPassword) {
           return null;
         }
 
+        const normalizedRole = normalizeRole(user.role);
+        if (!normalizedRole) {
+          return null;
+        }
+
+        let teacherSchoolId = user.teacher?.schoolId ?? undefined;
+        if (normalizedRole === 'TEACHER' && !user.teacher) {
+          const teacher = await prisma.teacher.create({
+            data: {
+              userId: user.id,
+              schoolId: user.schoolId ?? undefined,
+            },
+            select: { schoolId: true },
+          });
+          teacherSchoolId = teacher.schoolId ?? undefined;
+        }
+
         const schoolId =
           user.schoolId ??
-          user.teacher?.schoolId ??
+          teacherSchoolId ??
           user.student?.schoolId ??
           user.parent?.students[0]?.schoolId;
 
@@ -138,7 +182,7 @@ export const authOptions: NextAuthOptions = {
           id: user.id,
           email: user.email,
           name: user.name,
-          role: user.role as Role,
+          role: normalizedRole,
           schoolId,
         };
       },
@@ -148,20 +192,23 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
-        token.role = user.role;
+        token.role = normalizeRole(user.role) ?? token.role;
         token.schoolId = user.schoolId;
       }
       return token;
     },
     async session({ session, token }) {
+      const normalizedRole = normalizeRole(token.role);
+      if (!normalizedRole) return session;
+
       if (session.user) {
         session.user.id = token.id as string;
-        session.user.role = token.role as Role;
+        session.user.role = normalizedRole;
         session.user.schoolId = token.schoolId;
       }
       session.token = {
         sub: token.sub as string,
-        role: token.role as Role,
+        role: normalizedRole,
         email: token.email,
         schoolId: token.schoolId,
       };

@@ -27,7 +27,23 @@ export default async function TeacherDashboardPage() {
   };
 
   const teacherService = new TeacherService(user);
-  const teacher = await teacherService.getTeacherByUserId(session.user.id);
+  let teacher;
+  try {
+    teacher = await teacherService.getTeacherByUserId(session.user.id);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unable to load teacher profile';
+    return (
+      <div className="p-8">
+        <div className="max-w-2xl rounded-lg border border-amber-200 bg-amber-50 p-6">
+          <h1 className="text-xl font-semibold text-amber-900">Teacher Profile Missing</h1>
+          <p className="mt-2 text-sm text-amber-800">
+            Your account is authenticated but no teacher profile is linked yet. Contact an admin to complete setup.
+          </p>
+          <p className="mt-3 text-xs text-amber-700">{message}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-8">

@@ -11,6 +11,7 @@ import {
   CheckCircle,
   Calendar,
   CalendarDays,
+  FileText,
 } from 'lucide-react';
 import { useEffect } from 'react';
 import { signOut } from 'next-auth/react';
@@ -96,6 +97,13 @@ export function AdminLayoutClient({ session, children }: AdminLayoutClientProps)
             <CheckCircle className="w-5 h-5" />
             Attendance
           </Link>
+          <Link
+            href="/dashboard/admin/grades"
+            className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
+          >
+            <FileText className="w-5 h-5" />
+            Grades
+          </Link>
         </nav>
 
         {/* User info & logout */}
@@ -115,15 +123,14 @@ export function AdminLayoutClient({ session, children }: AdminLayoutClientProps)
               </p>
             </div>
           </div>
-          <form action="/api/auth/signout" method="POST">
-            <button
-              type="submit"
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium text-red-600 rounded-lg hover:bg-red-50 transition-colors"
-            >
-              <LogOut className="w-4 h-4" />
-              Sign out
-            </button>
-          </form>
+          <button
+            type="button"
+            onClick={() => signOut({ callbackUrl: '/login' })}
+            className="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+          >
+            <LogOut className="w-4 h-4" />
+            Sign out
+          </button>
         </div>
       </aside>
 

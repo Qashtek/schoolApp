@@ -61,6 +61,7 @@ export async function GET(request: Request) {
       id: session.user.id,
       role: userRole,
       email: session.user.email,
+      schoolId: session.user.schoolId,
     };
 
     const teacherService = new TeacherService(user);
@@ -131,10 +132,14 @@ export async function POST(request: Request) {
       id: session.user.id,
       role: userRole,
       email: session.user.email,
+      schoolId: session.user.schoolId,
     };
 
     const teacherService = new TeacherService(user);
-    const teacher = await teacherService.createTeacher(validatedData);
+    const teacher = await teacherService.createTeacher({
+      ...validatedData,
+      schoolId: validatedData.schoolId ?? session.user.schoolId,
+    });
 
     return NextResponse.json(teacher, { status: 201 });
   } catch (error) {

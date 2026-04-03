@@ -68,7 +68,6 @@ model Teacher {
   // Relations
   classes     TeacherClass[]
   subjects    TeacherSubject[]
-  grades      Grade[]
   attendances Attendance[]
 
   @@map("teachers")
@@ -100,6 +99,8 @@ model School {
   classes          Class[]
   students         Student[]
   subjects         Subject[]
+  grades           Grade[]
+  gradeBands       GradeBand[]
   attendances      Attendance[]
   academicSessions AcademicSession[]
 
@@ -131,6 +132,9 @@ model Term {
   endDate   DateTime
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
+
+  // Relations
+  grades Grade[]
 
   @@map("terms")
 }
@@ -168,6 +172,7 @@ model Subject {
   // Relations
   classes  ClassSubject[]
   teachers TeacherSubject[]
+  grades   Grade[]
 
   @@unique([schoolId, code])
   @@map("subjects")
@@ -235,15 +240,37 @@ model Grade {
   id        String   @id @default(cuid())
   studentId String
   student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  teacherId String
-  teacher   Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-  classId   String?
-  class     Class?   @relation(fields: [classId], references: [id])
-  subject   String
-  score     Float
-  date      DateTime
+  subjectId String
+  subject   Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  classId   String
+  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  termId    String
+  term      Term     @relation(fields: [termId], references: [id], onDelete: Cascade)
+  schoolId  String
+  school    School   @relation(fields: [schoolId], references: [id])
+  caScore   Float?
+  examScore Float?
+  total     Float?
+  grade     String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([studentId, subjectId, termId])
   @@map("grades")
+}
+
+model GradeBand {
+  id        String   @id @default(cuid())
+  schoolId  String
+  school    School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  level     String
+  letter    String
+  minScore  Float
+  maxScore  Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([schoolId, level, letter])
+  @@index([schoolId, level, minScore, maxScore])
+  @@map("grade_bands")
 }

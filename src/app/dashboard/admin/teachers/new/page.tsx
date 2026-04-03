@@ -164,7 +164,7 @@ export default function NewTeacherPage() {
         router.push('/dashboard/admin/teachers');
       } catch (teacherError) {
         // Clean up the created user if teacher creation failed
-        await fetch(`/api/teachers/${userData.id}`, {
+        await fetch(`/api/teachers?userId=${encodeURIComponent(userData.id)}`, {
           method: 'DELETE',
         }).catch(() => {});
         throw teacherError;

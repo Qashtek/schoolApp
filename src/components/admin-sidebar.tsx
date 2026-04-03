@@ -1,13 +1,11 @@
 'use client';
 
 import { useSession, signOut } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
-import { LayoutDashboard, Users, GraduationCap, BookOpen, Calendar, LogOut } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import { AdminNav } from '@/components/admin-nav';
 
 export function AdminSidebar() {
   const { data: session } = useSession();
-  const router = useRouter();
 
   const handleSignOut = async () => {
     await signOut({ callbackUrl: '/login' });
