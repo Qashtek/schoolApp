@@ -1,3 +1,88 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm;
+  }
+
+  body {
+    background: #fff !important;
+    color: #000 !important;
+    font-size: 11pt;
+    line-height: 1.35;
+  }
+
+  aside,
+  nav,
+  .print-button,
+  .report-card-toolbar {
+    display: none !important;
+  }
+
+  .report-card-page > :not(.report-card-content) {
+    display: none !important;
+  }
+
+  .report-card-page {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .report-card-content {
+    max-width: 100% !important;
+    margin: 0 !important;
+    border: 1px solid #000 !important;
+    box-shadow: none !important;
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  .report-card-content,
+  .report-card-content * {
+    color: #000 !important;
+    background: #fff !important;
+  }
+
+  .report-card-content h1 {
+    font-size: 20pt !important;
+  }
+
+  .report-card-content h2 {
+    font-size: 12pt !important;
+  }
+
+  .report-card-content p,
+  .report-card-content dt,
+  .report-card-content dd,
+  .report-card-content td,
+  .report-card-content th,
+  .report-card-content span {
+    font-size: 10pt !important;
+  }
+
+  .report-card-content table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  .report-card-content table,
+  .report-card-content th,
+  .report-card-content td {
+    border: 1px solid #000 !important;
+  }
+
+  .report-card-content th,
+  .report-card-content td {
+    padding: 6px 8px !important;
+  }
+
+  .report-card-content tr,
+  .report-card-content section,
+  .report-card-content article {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}
