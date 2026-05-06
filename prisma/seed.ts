@@ -5,6 +5,9 @@ const prisma = new PrismaClient();
 const DEFAULT_SCHOOL_NAME = 'Demo School';
 const DEMO_ADMIN_EMAIL = 'admin@school.edu';
 const DEMO_ADMIN_PASSWORD = 'admin123';
+const SUPER_ADMIN_NAME = 'Super Admin';
+const SUPER_ADMIN_EMAIL = 'superadmin@system.com';
+const SUPER_ADMIN_PASSWORD = 'superadmin123';
 
 async function getOrCreateDefaultSchool() {
   const existingSchool = await prisma.school.findFirst({
@@ -52,6 +55,41 @@ async function main() {
     }
   }
 
+  const superAdminUser = await prisma.user.findUnique({
+    where: { email: SUPER_ADMIN_EMAIL },
+  });
+
+  if (!superAdminUser) {
+    const hashedPassword = await hash(SUPER_ADMIN_PASSWORD, 12);
+    await prisma.user.create({
+      data: {
+        email: SUPER_ADMIN_EMAIL,
+        name: SUPER_ADMIN_NAME,
+        role: 'SUPER_ADMIN',
+        password: hashedPassword,
+        schoolId: null,
+      },
+    });
+  } else {
+    const needsUpdate =
+      superAdminUser.name !== SUPER_ADMIN_NAME ||
+      superAdminUser.role !== 'SUPER_ADMIN' ||
+      superAdminUser.schoolId !== null ||
+      !superAdminUser.password;
+
+    if (needsUpdate) {
+      await prisma.user.update({
+        where: { id: superAdminUser.id },
+        data: {
+          name: SUPER_ADMIN_NAME,
+          role: 'SUPER_ADMIN',
+          schoolId: null,
+          password: superAdminUser.password ?? (await hash(SUPER_ADMIN_PASSWORD, 12)),
+        },
+      });
+    }
+  }
+
   // Assign all teachers to default school
   const teachers = await prisma.user.findMany({ where: { role: "TEACHER" } });
   for (const teacher of teachers) {
@@ -65,7 +103,12 @@ async function main() {
 
   // Assign all users with null schoolId to default school
   const usersWithoutSchool = await prisma.user.findMany({
-    where: { schoolId: null },
+    where: {
+      schoolId: null,
+      role: {
+        not: 'SUPER_ADMIN',
+      },
+    },
   });
   for (const user of usersWithoutSchool) {
     await prisma.user.update({
