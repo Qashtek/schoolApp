@@ -12,6 +12,7 @@ import {
   CheckCircle,
   FileCheck,
   FileText,
+  Lock,
 } from 'lucide-react';
 
 const navItems = [
@@ -24,6 +25,7 @@ const navItems = [
   { label: 'Attendance', href: '/dashboard/admin/attendance', icon: CheckCircle },
   { label: 'Grades', href: '/dashboard/admin/grades', icon: FileText },
   { label: 'Report Cards', href: '/dashboard/admin/report-cards', icon: FileCheck },
+  { label: 'Change Password', href: '/dashboard/admin/change-password', icon: Lock },
 ];
 
 export function AdminNav() {

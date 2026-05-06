@@ -13,6 +13,7 @@ import {
   CalendarDays,
   FileCheck,
   FileText,
+  Lock,
 } from 'lucide-react';
 import { useEffect } from 'react';
 import { signOut } from 'next-auth/react';
@@ -111,6 +112,13 @@ export function AdminLayoutClient({ session, children }: AdminLayoutClientProps)
           >
             <FileCheck className="w-5 h-5" />
             Report Cards
+          </Link>
+          <Link
+            href="/dashboard/admin/change-password"
+            className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
+          >
+            <Lock className="w-5 h-5" />
+            Change Password
           </Link>
         </nav>
 
