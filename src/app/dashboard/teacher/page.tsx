@@ -1,6 +1,6 @@
 import { getServerSession } from 'next-auth';
 import { redirect } from 'next/navigation';
-import { BookOpen, Users, Calendar, User } from 'lucide-react';
+import { BookOpen, Users, Calendar, User, Lock } from 'lucide-react';
 import { authOptions } from '@/lib/auth';
 import { TeacherService } from '@/lib/services/teacher.service';
 import { Role } from '@/lib/permissions';
@@ -49,12 +49,38 @@ export default async function TeacherDashboardPage() {
     <div className="p-8">
       {/* Page header */}
       <div className="mb-8">
-        <h1 className="text-2xl font-semibold text-gray-900">
-          Teacher Dashboard
-        </h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Welcome back, {teacher.user.name}
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-semibold text-gray-900">
+              Teacher Dashboard
+            </h1>
+            <p className="mt-1 text-sm text-gray-500">
+              Welcome back, {teacher.user.name}
+            </p>
+          </div>
+          <Link
+            href="/dashboard/change-password"
+            className="inline-flex items-center gap-2 rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            <Lock className="h-4 w-4" />
+            Change Password
+          </Link>
+        </div>
+      </div>
+
+      <div className="mb-8 rounded-lg border border-amber-200 bg-amber-50 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-amber-800">
+            For security, change your admin-provided default password as soon as you sign in.
+          </p>
+          <Link
+            href="/dashboard/change-password"
+            className="inline-flex items-center gap-2 rounded-md bg-amber-600 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-700"
+          >
+            <Lock className="h-3.5 w-3.5" />
+            Update Password
+          </Link>
+        </div>
       </div>
 
       {/* Teacher Info Card */}

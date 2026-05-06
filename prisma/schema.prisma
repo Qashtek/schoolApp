@@ -34,10 +34,8 @@ model Student {
   firstName       String
   lastName        String
   admissionNumber String
-  userId          String   @unique
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  parentId        String?
-  parent          Parent?  @relation("ParentStudents", fields: [parentId], references: [id])
+  userId          String?  @unique
+  user            User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
   grade           String?
   schoolId        String
   school          School   @relation(fields: [schoolId], references: [id])
@@ -49,6 +47,7 @@ model Student {
   // Relations
   attendances Attendance[]
   grades      Grade[]
+  parents     ParentStudent[]
 
   @@unique([schoolId, admissionNumber])
   @@map("students")
@@ -77,13 +76,25 @@ model Parent {
   id        String   @id @default(cuid())
   userId    String   @unique
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  schoolId  String
+  school    School   @relation(fields: [schoolId], references: [id])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relations
-  students Student[] @relation("ParentStudents")
+  students ParentStudent[]
 
   @@map("parents")
+}
+
+model ParentStudent {
+  parentId String
+  parent   Parent  @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@id([parentId, studentId])
+  @@map("parent_students")
 }
 
 model School {
@@ -95,6 +106,7 @@ model School {
 
   // Relations
   users            User[]
+  parents          Parent[]
   teachers         Teacher[]
   classes          Class[]
   students         Student[]

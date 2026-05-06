@@ -4,7 +4,7 @@
 
 import { Session } from 'next-auth';
 import Link from 'next/link';
-import { LayoutDashboard, BookOpen, GraduationCap, FileText, LogOut } from 'lucide-react';
+import { LayoutDashboard, BookOpen, GraduationCap, FileText, Lock, LogOut } from 'lucide-react';
 import { useEffect } from 'react';
 import { signOut } from 'next-auth/react';
 
@@ -15,6 +15,7 @@ interface TeacherLayoutClientProps {
 
 const ATTENDANCE_PATH = '/dashboard/teacher/attendance';
 const GRADES_PATH = '/dashboard/teacher/grades';
+const CHANGE_PASSWORD_PATH = '/dashboard/change-password';
 
 export function TeacherLayoutClient({ session, children }: TeacherLayoutClientProps) {
   useEffect(() => {
@@ -70,6 +71,13 @@ export function TeacherLayoutClient({ session, children }: TeacherLayoutClientPr
           >
             <FileText className="w-5 h-5" />
             Grades
+          </Link>
+          <Link
+            href={CHANGE_PASSWORD_PATH}
+            className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
+          >
+            <Lock className="w-5 h-5" />
+            Change Password
           </Link>
         </nav>
 

@@ -18,6 +18,36 @@ export interface MarkSingleAttendanceInput {
   status: 'PRESENT' | 'ABSENT' | 'LATE';
 }
 
+const studentAttendanceSelect = {
+  id: true,
+  firstName: true,
+  lastName: true,
+  user: {
+    select: {
+      id: true,
+      name: true,
+      email: true,
+    },
+  },
+} as const;
+
+const teacherAttendanceSelect = {
+  id: true,
+  user: {
+    select: {
+      id: true,
+      name: true,
+      email: true,
+    },
+  },
+} as const;
+
+const classAttendanceSelect = {
+  id: true,
+  name: true,
+  grade: true,
+} as const;
+
 export class AttendanceService {
   private user: AuthenticatedUser;
 
@@ -100,6 +130,9 @@ export class AttendanceService {
         id: { in: studentIds },
         classId: data.classId,
       },
+      select: {
+        id: true,
+      },
     });
 
     if (students.length !== studentIds.length) {
@@ -147,28 +180,25 @@ export class AttendanceService {
           classId: data.classId,
           date: attendanceDate,
         },
-        include: {
+        select: {
+          id: true,
+          studentId: true,
+          classId: true,
+          teacherId: true,
+          schoolId: true,
+          date: true,
+          status: true,
+          createdAt: true,
+          updatedAt: true,
           student: {
-            include: {
-              user: {
-                select: {
-                  id: true,
-                  name: true,
-                },
-              },
-            },
+            select: studentAttendanceSelect,
           },
           teacher: {
-            include: {
-              user: {
-                select: {
-                  id: true,
-                  name: true,
-                },
-              },
-            },
+            select: teacherAttendanceSelect,
           },
-          class: true,
+          class: {
+            select: classAttendanceSelect,
+          },
         },
       });
     });
@@ -209,28 +239,25 @@ export class AttendanceService {
           lt: endOfDay,
         },
       },
-      include: {
+      select: {
+        id: true,
+        studentId: true,
+        classId: true,
+        teacherId: true,
+        schoolId: true,
+        date: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
         student: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
-          },
+          select: studentAttendanceSelect,
         },
         teacher: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
-          },
+          select: teacherAttendanceSelect,
         },
-        class: true,
+        class: {
+          select: classAttendanceSelect,
+        },
       },
       orderBy: {
         student: {
@@ -281,6 +308,9 @@ export class AttendanceService {
         id: data.studentId,
         classId: data.classId,
       },
+      select: {
+        id: true,
+      },
     });
 
     if (!student) {
@@ -316,28 +346,25 @@ export class AttendanceService {
         date: attendanceDate,
         status: data.status,
       },
-      include: {
+      select: {
+        id: true,
+        studentId: true,
+        classId: true,
+        teacherId: true,
+        schoolId: true,
+        date: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
         student: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
-          },
+          select: studentAttendanceSelect,
         },
         teacher: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
-          },
+          select: teacherAttendanceSelect,
         },
-        class: true,
+        class: {
+          select: classAttendanceSelect,
+        },
       },
     });
 
@@ -379,28 +406,25 @@ export class AttendanceService {
     const updatedRecord = await prisma.attendance.update({
       where: { id: attendanceId },
       data: { status },
-      include: {
+      select: {
+        id: true,
+        studentId: true,
+        classId: true,
+        teacherId: true,
+        schoolId: true,
+        date: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
         student: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
-          },
+          select: studentAttendanceSelect,
         },
         teacher: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
-          },
+          select: teacherAttendanceSelect,
         },
-        class: true,
+        class: {
+          select: classAttendanceSelect,
+        },
       },
     });
 

@@ -1,13 +1,76 @@
-
 import { getServerSession } from 'next-auth';
+import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { Users, Plus, BookOpen } from 'lucide-react';
 import { authOptions } from '@/lib/auth';
 import { TeacherService } from '@/lib/services/teacher.service';
-import { Role } from '@/lib/permissions';
+import { isAdmin, Role } from '@/lib/permissions';
+import { prisma } from '@/lib/prisma';
+import { FlashSuccess } from '../sessions/flash-success';
+import { ConfirmSubmitButton } from '@/components/confirm-submit-button';
 
-export default async function AdminTeachersPage() {
+async function deleteTeacherAction(formData: FormData) {
+  'use server';
+
+  const session = await getServerSession(authOptions);
+
+  if (!session?.user?.role || !isAdmin(session.user.role)) {
+    return;
+  }
+
+  const teacherId = String(formData.get('teacherId') ?? '').trim();
+  if (!teacherId) {
+    return;
+  }
+
+  const teacher = await prisma.teacher.findUnique({
+    where: { id: teacherId },
+    select: {
+      id: true,
+      schoolId: true,
+      userId: true,
+      user: {
+        select: {
+          role: true,
+        },
+      },
+    },
+  });
+
+  if (!teacher) {
+    return;
+  }
+
+  if (session.user.role !== 'SUPER_ADMIN') {
+    if (!session.user.schoolId || teacher.schoolId !== session.user.schoolId) {
+      return;
+    }
+  }
+
+  if (teacher.user.role === 'TEACHER') {
+    await prisma.user.delete({
+      where: {
+        id: teacher.userId,
+      },
+    });
+  } else {
+    await prisma.teacher.delete({
+      where: {
+        id: teacher.id,
+      },
+    });
+  }
+
+  revalidatePath('/dashboard/admin/teachers');
+  redirect('/dashboard/admin/teachers?teacherDeleted=1');
+}
+
+export default async function AdminTeachersPage({
+  searchParams,
+}: {
+  searchParams?: { teacherDeleted?: string };
+}) {
   const session = await getServerSession(authOptions);
 
   // Check authentication and admin role
@@ -16,7 +79,11 @@ export default async function AdminTeachersPage() {
   }
 
   const userRole = session.user.role as Role;
-  if (userRole !== 'ADMIN' && userRole !== 'SUPER_ADMIN') {
+  if (!isAdmin(userRole)) {
+    redirect('/dashboard');
+  }
+
+  if (userRole !== 'SUPER_ADMIN' && !session.user.schoolId) {
     redirect('/dashboard');
   }
 
@@ -25,10 +92,17 @@ export default async function AdminTeachersPage() {
     id: session.user.id,
     role: userRole,
     email: session.user.email,
+    schoolId: session.user.schoolId,
   };
 
   const teacherService = new TeacherService(user);
-  const { teachers } = await teacherService.getAllTeachers();
+  const { teachers } = await teacherService.getAllTeachers(
+    userRole === 'SUPER_ADMIN'
+      ? undefined
+      : {
+          schoolId: session.user.schoolId,
+        }
+  );
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -57,6 +131,14 @@ export default async function AdminTeachersPage() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {searchParams?.teacherDeleted === '1' && (
+          <FlashSuccess
+            message="Teacher deleted successfully."
+            queryKey="teacherDeleted"
+            timeoutMs={15000}
+          />
+        )}
+
         {/* Teachers List */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-100">
           {teachers.length === 0 ? (
@@ -95,6 +177,9 @@ export default async function AdminTeachersPage() {
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Joined
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
                     </th>
                   </tr>
                 </thead>
@@ -153,6 +238,17 @@ export default async function AdminTeachersPage() {
                           {new Date(teacher.createdAt).toLocaleDateString()}
                         </span>
                       </td>
+                      <td className="px-6 py-4">
+                        <form action={deleteTeacherAction}>
+                          <input type="hidden" name="teacherId" value={teacher.id} />
+                          <ConfirmSubmitButton
+                            confirmMessage={`Delete teacher "${teacher.user.name || teacher.user.email}"? This action cannot be undone.`}
+                            className="inline-flex items-center rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100"
+                          >
+                            Delete
+                          </ConfirmSubmitButton>
+                        </form>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -207,4 +303,3 @@ export default async function AdminTeachersPage() {
     </div>
   );
 }
-

@@ -15,8 +15,12 @@ export default async function DashboardPage() {
   const userRole = session.user.role;
 
   // Redirect to role-specific dashboard
-  if (userRole === 'ADMIN' || userRole === 'SUPER_ADMIN') {
+  if (userRole === 'ADMIN') {
     redirect('/dashboard/admin');
+  }
+
+  if (userRole === 'SUPER_ADMIN') {
+    redirect('/dashboard/super-admin');
   }
 
   if (userRole === 'TEACHER') {
@@ -115,4 +119,3 @@ export default async function DashboardPage() {
     </div>
   );
 }
-

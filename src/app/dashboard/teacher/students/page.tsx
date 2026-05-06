@@ -44,13 +44,10 @@ export default async function TeacherStudentsPage({ searchParams }: PageProps) {
       class: {
         include: {
           students: {
-            include: {
-              user: {
-                select: {
-                  name: true,
-                  email: true,
-                },
-              },
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
             },
             orderBy: [
               { lastName: 'asc' },

@@ -4,8 +4,9 @@ type Role = 'ADMIN' | 'TEACHER' | 'STUDENT' | 'PARENT' | 'SUPER_ADMIN';
 export function getRedirectPath(role: Role): string {
   switch (role) {
     case 'ADMIN':
-    case 'SUPER_ADMIN':
       return '/dashboard/admin';
+    case 'SUPER_ADMIN':
+      return '/dashboard/super-admin';
     case 'TEACHER':
       return '/dashboard/teacher';
     case 'STUDENT':
@@ -16,4 +17,3 @@ export function getRedirectPath(role: Role): string {
       return '/dashboard';
   }
 }
-

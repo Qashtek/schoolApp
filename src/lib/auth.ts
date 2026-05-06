@@ -115,7 +115,13 @@ export const authOptions: NextAuthOptions = {
             parent: {
               select: {
                 students: {
-                  select: { schoolId: true },
+                  select: {
+                    student: {
+                      select: {
+                        schoolId: true,
+                      },
+                    },
+                  },
                   take: 1,
                 },
               },
@@ -176,7 +182,7 @@ export const authOptions: NextAuthOptions = {
           user.schoolId ??
           teacherSchoolId ??
           user.student?.schoolId ??
-          user.parent?.students[0]?.schoolId;
+          user.parent?.students[0]?.student?.schoolId;
 
         return {
           id: user.id,

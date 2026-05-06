@@ -36,6 +36,12 @@ export default withAuth(
     if (isDashboardRoute) {
       const userRole = token.role as string
 
+      if (req.nextUrl.pathname.startsWith('/dashboard/super-admin')) {
+        if (userRole !== 'SUPER_ADMIN') {
+          return NextResponse.redirect(new URL('/dashboard', req.url))
+        }
+      }
+
       if (req.nextUrl.pathname.startsWith('/dashboard/admin')) {
         if (userRole !== 'ADMIN' && userRole !== 'SUPER_ADMIN') {
           return NextResponse.redirect(new URL('/dashboard', req.url))
