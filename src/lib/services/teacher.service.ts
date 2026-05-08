@@ -481,4 +481,46 @@ export class TeacherService {
 
     return assignments.map(a => a.class);
   }
+
+  /**
+   * Reset teacher password to default (email prefix)
+   * Only ADMIN can reset teacher passwords
+   */
+  async resetTeacherPasswordToDefault(teacherId: string) {
+    this.requireAdmin();
+
+    const teacher = await prisma.teacher.findUnique({
+      where: { id: teacherId },
+      select: {
+        id: true,
+        schoolId: true,
+        user: {
+          select: {
+            id: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    if (!teacher) {
+      throw new Error('Teacher not found');
+    }
+
+    const normalizedEmail = teacher.user.email.trim().toLowerCase();
+    const emailPrefix = normalizedEmail.split('@')[0]?.trim();
+
+    if (!emailPrefix) {
+      throw new Error('Cannot derive default password from teacher email');
+    }
+
+    const hashedPassword = await hash(emailPrefix, 12);
+
+    await prisma.user.update({
+      where: { id: teacher.user.id },
+      data: { password: hashedPassword },
+    });
+
+    return { success: true };
+  }
 }

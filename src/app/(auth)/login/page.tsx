@@ -115,6 +115,10 @@ export default function LoginPage() {
         <p className="mt-4 text-center text-sm text-gray-500">
           Demo: admin@school.edu / admin123
         </p>
+
+        <p className="mt-4 text-center text-sm text-gray-600">
+          Forgot your password? Please contact your administrator for password reset.
+        </p>
       </div>
     </div>
   );

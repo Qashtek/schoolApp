@@ -2,7 +2,7 @@ import { getServerSession } from 'next-auth';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { Users, Plus, BookOpen } from 'lucide-react';
+import { Users, Plus, BookOpen, Key } from 'lucide-react';
 import { authOptions } from '@/lib/auth';
 import { TeacherService } from '@/lib/services/teacher.service';
 import { isAdmin, Role } from '@/lib/permissions';
@@ -66,10 +66,60 @@ async function deleteTeacherAction(formData: FormData) {
   redirect('/dashboard/admin/teachers?teacherDeleted=1');
 }
 
+async function resetTeacherPasswordAction(formData: FormData) {
+  'use server';
+
+  const session = await getServerSession(authOptions);
+
+  if (!session?.user?.role || !isAdmin(session.user.role)) {
+    return;
+  }
+
+  const teacherId = String(formData.get('teacherId') ?? '').trim();
+  if (!teacherId) {
+    return;
+  }
+
+  const teacher = await prisma.teacher.findUnique({
+    where: { id: teacherId },
+    select: {
+      id: true,
+      schoolId: true,
+      user: {
+        select: {
+          role: true,
+        },
+      },
+    },
+  });
+
+  if (!teacher) {
+    return;
+  }
+
+  if (session.user.role !== 'SUPER_ADMIN') {
+    if (!session.user.schoolId || teacher.schoolId !== session.user.schoolId) {
+      return;
+    }
+  }
+
+  const userRole = session.user.role as Role;
+  const teacherService = new TeacherService({
+    id: session.user.id,
+    role: userRole,
+    email: session.user.email,
+  });
+
+  await teacherService.resetTeacherPasswordToDefault(teacherId);
+
+  revalidatePath('/dashboard/admin/teachers');
+  redirect('/dashboard/admin/teachers?teacherPasswordReset=1');
+}
+
 export default async function AdminTeachersPage({
   searchParams,
 }: {
-  searchParams?: { teacherDeleted?: string };
+  searchParams?: { teacherDeleted?: string; teacherPasswordReset?: string };
 }) {
   const session = await getServerSession(authOptions);
 
@@ -135,6 +185,13 @@ export default async function AdminTeachersPage({
           <FlashSuccess
             message="Teacher deleted successfully."
             queryKey="teacherDeleted"
+            timeoutMs={15000}
+          />
+        )}
+        {searchParams?.teacherPasswordReset === '1' && (
+          <FlashSuccess
+            message="Teacher password reset to default successfully."
+            queryKey="teacherPasswordReset"
             timeoutMs={15000}
           />
         )}
@@ -239,15 +296,27 @@ export default async function AdminTeachersPage({
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        <form action={deleteTeacherAction}>
-                          <input type="hidden" name="teacherId" value={teacher.id} />
-                          <ConfirmSubmitButton
-                            confirmMessage={`Delete teacher "${teacher.user.name || teacher.user.email}"? This action cannot be undone.`}
-                            className="inline-flex items-center rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100"
-                          >
-                            Delete
-                          </ConfirmSubmitButton>
-                        </form>
+                        <div className="flex items-center gap-2">
+                          <form action={resetTeacherPasswordAction}>
+                            <input type="hidden" name="teacherId" value={teacher.id} />
+                            <ConfirmSubmitButton
+                              confirmMessage={`Reset password for "${teacher.user.name || teacher.user.email}" to their email prefix?`}
+                              className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
+                            >
+                              <Key className="w-3 h-3" />
+                              Reset
+                            </ConfirmSubmitButton>
+                          </form>
+                          <form action={deleteTeacherAction}>
+                            <input type="hidden" name="teacherId" value={teacher.id} />
+                            <ConfirmSubmitButton
+                              confirmMessage={`Delete teacher "${teacher.user.name || teacher.user.email}"? This action cannot be undone.`}
+                              className="inline-flex items-center rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100"
+                            >
+                              Delete
+                            </ConfirmSubmitButton>
+                          </form>
+                        </div>
                       </td>
                     </tr>
                   ))}

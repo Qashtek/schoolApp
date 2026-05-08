@@ -49,20 +49,24 @@ export async function PATCH(request: Request) {
       );
     }
 
-    try {
-      const isCurrentPasswordValid = await compare(validated.currentPassword, user.password);
+    let isCurrentPasswordValid = false;
 
-      if (!isCurrentPasswordValid) {
-        return NextResponse.json(
-          { error: 'Current password is incorrect' },
-          { status: 400 }
-        );
-      }
+    try {
+      isCurrentPasswordValid = await compare(validated.currentPassword, user.password);
     } catch (compareError) {
       console.error('Password compare error:', compareError);
+      // Continue to plaintext fallback below
+    }
+
+    // Backward-compatible fallback for legacy plain-text passwords
+    if (!isCurrentPasswordValid && validated.currentPassword === user.password) {
+      isCurrentPasswordValid = true;
+    }
+
+    if (!isCurrentPasswordValid) {
       return NextResponse.json(
-        { error: 'Unable to verify current password' },
-        { status: 500 }
+        { error: 'Current password is incorrect' },
+        { status: 400 }
       );
     }
 
