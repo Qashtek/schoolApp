@@ -101,6 +101,7 @@ model School {
   id        String   @id @default(cuid())
   name      String
   address   String?
+  logoUrl   String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
