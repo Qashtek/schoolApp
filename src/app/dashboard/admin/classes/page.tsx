@@ -5,7 +5,13 @@ import { isAdmin } from '@/lib/permissions';
 import { ClassService } from '@/lib/services/class.service';
 import Link from 'next/link';
 
-export default async function AdminClassesPage() {
+const PAGE_SIZE = 20;
+
+export default async function AdminClassesPage({
+  searchParams,
+}: {
+  searchParams?: { page?: string };
+}) {
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.role || !isAdmin(session.user.role)) {
@@ -20,7 +26,19 @@ export default async function AdminClassesPage() {
     schoolId: session.user.schoolId,
   });
 
-  const { classes } = await classService.getAllClasses();
+  const requestedPage = Number(searchParams?.page ?? '1');
+  const currentPage = Number.isFinite(requestedPage) && requestedPage >= 1
+    ? Math.floor(requestedPage)
+    : 1;
+  const skip = (currentPage - 1) * PAGE_SIZE;
+
+  const { classes, count } = await classService.getAllClasses({
+    skip,
+    take: PAGE_SIZE,
+  });
+  const totalPages = Math.max(1, Math.ceil(count / PAGE_SIZE));
+  const previousPageHref = `/dashboard/admin/classes?page=${Math.max(1, currentPage - 1)}`;
+  const nextPageHref = `/dashboard/admin/classes?page=${currentPage + 1}`;
 
   return (
     <div className="space-y-6">
@@ -78,6 +96,38 @@ export default async function AdminClassesPage() {
               ))}
             </div>
           )}
+
+          <div className="mt-6 flex items-center justify-between border-t border-gray-200 pt-4">
+            {currentPage > 1 ? (
+              <Link
+                href={previousPageHref}
+                className="rounded border border-gray-300 px-3 py-1 text-sm text-gray-700 hover:bg-gray-50"
+              >
+                Previous
+              </Link>
+            ) : (
+              <span className="rounded border border-gray-200 px-3 py-1 text-sm text-gray-400">
+                Previous
+              </span>
+            )}
+
+            <p className="text-sm text-gray-600">
+              Page {Math.min(currentPage, totalPages)} of {totalPages}
+            </p>
+
+            {currentPage < totalPages ? (
+              <Link
+                href={nextPageHref}
+                className="rounded border border-gray-300 px-3 py-1 text-sm text-gray-700 hover:bg-gray-50"
+              >
+                Next
+              </Link>
+            ) : (
+              <span className="rounded border border-gray-200 px-3 py-1 text-sm text-gray-400">
+                Next
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </div>

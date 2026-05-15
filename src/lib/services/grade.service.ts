@@ -137,6 +137,7 @@ export class GradeService {
       where: {
         userId: this.user.id,
         schoolId,
+        deletedAt: null,
       },
       select: { id: true },
     });
@@ -218,6 +219,7 @@ export class GradeService {
         where: {
           id: studentId,
           schoolId,
+          deletedAt: null,
         },
         select: {
           id: true,
@@ -228,6 +230,7 @@ export class GradeService {
         where: {
           id: subjectId,
           schoolId,
+          deletedAt: null,
         },
         select: { id: true },
       }),
@@ -235,6 +238,7 @@ export class GradeService {
         where: {
           id: classId,
           schoolId,
+          deletedAt: null,
         },
         select: {
           id: true,
@@ -249,6 +253,7 @@ export class GradeService {
               schoolId,
             },
           },
+          deletedAt: null,
         },
         select: { id: true },
       }),
@@ -357,7 +362,11 @@ export class GradeService {
     });
   }
 
-  async getGradesByClass(classId: string, termId: string) {
+  async getGradesByClass(
+    classId: string,
+    termId: string,
+    options?: { skip?: number; take?: number }
+  ) {
     this.requireTeacherOrAdmin();
     const schoolId = this.requireSchoolId();
 
@@ -388,35 +397,45 @@ export class GradeService {
       }
     }
 
-    return prisma.grade.findMany({
-      where: {
-        schoolId,
-        classId: classIdValue,
-        termId: termIdValue,
-      },
-      include: {
-        student: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            admissionNumber: true,
+    const where = {
+      schoolId,
+      classId: classIdValue,
+      termId: termIdValue,
+      deletedAt: null,
+    };
+
+    const [grades, count] = await prisma.$transaction([
+      prisma.grade.findMany({
+        where,
+        skip: options?.skip,
+        take: options?.take,
+        include: {
+          student: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              admissionNumber: true,
+            },
+          },
+          subject: {
+            select: {
+              id: true,
+              name: true,
+              code: true,
+            },
           },
         },
-        subject: {
-          select: {
-            id: true,
-            name: true,
-            code: true,
-          },
-        },
-      },
-      orderBy: [
-        { student: { lastName: 'asc' } },
-        { student: { firstName: 'asc' } },
-        { subject: { name: 'asc' } },
-      ],
-    });
+        orderBy: [
+          { student: { lastName: 'asc' } },
+          { student: { firstName: 'asc' } },
+          { subject: { name: 'asc' } },
+        ],
+      }),
+      prisma.grade.count({ where }),
+    ]);
+
+    return { grades, count };
   }
 
   async getGradesByStudent(studentId: string, termId: string) {
@@ -438,6 +457,7 @@ export class GradeService {
       where: {
         id: studentIdValue,
         schoolId,
+        deletedAt: null,
       },
       select: {
         id: true,
@@ -474,6 +494,7 @@ export class GradeService {
         schoolId,
         studentId: studentIdValue,
         termId: termIdValue,
+        deletedAt: null,
       },
       include: {
         student: {
@@ -524,6 +545,7 @@ export class GradeService {
             schoolId,
           },
         },
+        deletedAt: null,
       },
       select: { id: true },
     });
@@ -536,6 +558,7 @@ export class GradeService {
       where: {
         schoolId,
         termId: termIdValue,
+        deletedAt: null,
       },
       include: {
         student: {

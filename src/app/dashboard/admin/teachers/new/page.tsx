@@ -55,28 +55,39 @@ export default function NewTeacherPage() {
   });
   const [errors, setErrors] = useState<FormErrors>({});
 
+  const normalizeListResponse = <T,>(payload: unknown): T[] => {
+    if (Array.isArray(payload)) {
+      return payload as T[];
+    }
+
+    if (
+      payload &&
+      typeof payload === 'object' &&
+      Array.isArray((payload as { data?: unknown }).data)
+    ) {
+      return (payload as { data: T[] }).data;
+    }
+
+    return [];
+  };
+
   // Fetch classes and subjects on component mount
   useEffect(() => {
     const fetchData = async () => {
       try {
         const [classesResponse, subjectsResponse] = await Promise.all([
-          fetch('/api/classes'),
-          fetch('/api/subjects'),
+          fetch('/api/classes?limit=100'),
+          fetch('/api/subjects?limit=100'),
         ]);
 
         if (classesResponse.ok) {
           const classesData = await classesResponse.json();
-          setClasses(classesData);
+          setClasses(normalizeListResponse<Class>(classesData));
         }
 
         if (subjectsResponse.ok) {
           const subjectsData = await subjectsResponse.json();
-          const normalizedSubjects = Array.isArray(subjectsData)
-            ? subjectsData
-            : Array.isArray(subjectsData?.data)
-              ? subjectsData.data
-              : [];
-          setSubjects(normalizedSubjects);
+          setSubjects(normalizeListResponse<SubjectOption>(subjectsData));
         }
       } catch (error) {
         console.error('Error fetching page data:', error);

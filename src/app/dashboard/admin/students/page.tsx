@@ -9,6 +9,7 @@ import { FlashSuccess } from '../sessions/flash-success';
 import { ConfirmSubmitButton } from '@/components/confirm-submit-button';
 
 export const dynamic = 'force-dynamic';
+const PAGE_SIZE = 20;
 
 async function deleteStudentAction(formData: FormData) {
   'use server';
@@ -69,7 +70,7 @@ async function deleteStudentAction(formData: FormData) {
 export default async function AdminStudentsPage({
   searchParams,
 }: {
-  searchParams?: { studentDeleted?: string };
+  searchParams?: { studentDeleted?: string; page?: string };
 }) {
   const session = await getServerSession(authOptions);
 
@@ -99,19 +100,36 @@ export default async function AdminStudentsPage({
     );
   }
 
-  const students = await prisma.student.findMany({
-    where: { schoolId: session.user.schoolId },
-    include: {
-      class: {
-        select: {
-          name: true,
+  const requestedPage = Number(searchParams?.page ?? '1');
+  const currentPage = Number.isFinite(requestedPage) && requestedPage >= 1
+    ? Math.floor(requestedPage)
+    : 1;
+  const skip = (currentPage - 1) * PAGE_SIZE;
+
+  const [students, total] = await prisma.$transaction([
+    prisma.student.findMany({
+      where: { schoolId: session.user.schoolId },
+      include: {
+        class: {
+          select: {
+            name: true,
+          },
         },
       },
-    },
-    orderBy: {
-      createdAt: 'desc',
-    },
-  });
+      orderBy: {
+        createdAt: 'desc',
+      },
+      skip,
+      take: PAGE_SIZE,
+    }),
+    prisma.student.count({
+      where: { schoolId: session.user.schoolId },
+    }),
+  ]);
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const previousPageHref = `/dashboard/admin/students?page=${Math.max(1, currentPage - 1)}`;
+  const nextPageHref = `/dashboard/admin/students?page=${currentPage + 1}`;
 
   return (
     <div className="space-y-6">
@@ -185,6 +203,38 @@ export default async function AdminStudentsPage({
               </table>
             </div>
           )}
+
+          <div className="mt-6 flex items-center justify-between border-t border-gray-200 pt-4">
+            {currentPage > 1 ? (
+              <Link
+                href={previousPageHref}
+                className="rounded border border-gray-300 px-3 py-1 text-sm text-gray-700 hover:bg-gray-50"
+              >
+                Previous
+              </Link>
+            ) : (
+              <span className="rounded border border-gray-200 px-3 py-1 text-sm text-gray-400">
+                Previous
+              </span>
+            )}
+
+            <p className="text-sm text-gray-600">
+              Page {Math.min(currentPage, totalPages)} of {totalPages}
+            </p>
+
+            {currentPage < totalPages ? (
+              <Link
+                href={nextPageHref}
+                className="rounded border border-gray-300 px-3 py-1 text-sm text-gray-700 hover:bg-gray-50"
+              >
+                Next
+              </Link>
+            ) : (
+              <span className="rounded border border-gray-200 px-3 py-1 text-sm text-gray-400">
+                Next
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </div>

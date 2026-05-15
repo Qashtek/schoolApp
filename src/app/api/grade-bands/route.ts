@@ -10,7 +10,7 @@ const updateGradeBandsSchema = z.object({
   level: levelSchema,
   bands: z.array(
     z.object({
-      letter: z.string().min(1, 'letter is required'),
+      letter: z.string().trim().min(1, 'letter is required'),
       minScore: z.number().min(0).max(100),
       maxScore: z.number().min(0).max(100),
     })
@@ -83,7 +83,7 @@ export async function GET(request: Request) {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Validation error', details: error.issues },
+        { error: 'Validation error', details: error.flatten() },
         { status: 400 }
       );
     }
@@ -135,7 +135,7 @@ export async function PUT(request: Request) {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Validation error', details: error.issues },
+        { error: 'Validation error', details: error.flatten() },
         { status: 400 }
       );
     }

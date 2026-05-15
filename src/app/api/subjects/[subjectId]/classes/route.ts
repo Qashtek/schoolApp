@@ -5,7 +5,7 @@ import { authOptions, Role } from '@/lib/auth';
 import { SubjectService } from '@/lib/services/subject.service';
 
 const assignSubjectToClassSchema = z.object({
-  classId: z.string().min(1, 'Class ID is required'),
+  classId: z.string().trim().min(1, 'Class ID is required'),
 }).strict();
 
 function mapServiceErrorToStatus(message: string): number {
@@ -86,7 +86,7 @@ export async function POST(
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Validation error', details: error.issues },
+        { error: 'Validation error', details: error.flatten() },
         { status: 400 }
       );
     }

@@ -57,14 +57,30 @@ export default function NewStudentPage() {
   const [success, setSuccess] = useState('');
   const successRef = useRef<HTMLDivElement | null>(null);
 
+  const normalizeListResponse = <T,>(payload: unknown): T[] => {
+    if (Array.isArray(payload)) {
+      return payload as T[];
+    }
+
+    if (
+      payload &&
+      typeof payload === 'object' &&
+      Array.isArray((payload as { data?: unknown }).data)
+    ) {
+      return (payload as { data: T[] }).data;
+    }
+
+    return [];
+  };
+
   // Fetch classes on component mount
   useEffect(() => {
     const fetchClasses = async () => {
       try {
-        const response = await fetch('/api/classes');
+        const response = await fetch('/api/classes?limit=100');
         if (response.ok) {
           const data = await response.json();
-          setClasses(data);
+          setClasses(normalizeListResponse<Class>(data));
         }
       } catch (error) {
         console.error('Error fetching classes:', error);

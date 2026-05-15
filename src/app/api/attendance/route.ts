@@ -6,11 +6,11 @@ import { authOptions, Role } from '@/lib/auth';
 
 // Input validation schema for marking attendance
 const markAttendanceSchema = z.object({
-  classId: z.string().min(1, 'Class ID is required'),
-  date: z.string().datetime().optional(), // ISO date string, defaults to today if not provided
+  classId: z.string().trim().min(1, 'Class ID is required'),
+  date: z.string().trim().min(1, 'Date is required').datetime().optional(), // ISO date string, defaults to today if not provided
   records: z.array(
     z.object({
-      studentId: z.string().min(1, 'Student ID is required'),
+      studentId: z.string().trim().min(1, 'Student ID is required'),
       status: z.enum(['PRESENT', 'ABSENT', 'LATE']),
     })
   ).min(1, 'At least one attendance record is required'),
@@ -18,15 +18,15 @@ const markAttendanceSchema = z.object({
 
 // Input validation schema for marking single attendance
 const markSingleAttendanceSchema = z.object({
-  classId: z.string().min(1, 'Class ID is required'),
-  studentId: z.string().min(1, 'Student ID is required'),
+  classId: z.string().trim().min(1, 'Class ID is required'),
+  studentId: z.string().trim().min(1, 'Student ID is required'),
   status: z.enum(['PRESENT', 'ABSENT', 'LATE']),
 });
 
 // Query validation schema for getting attendance
 const getAttendanceSchema = z.object({
-  classId: z.string().min(1, 'Class ID is required'),
-  date: z.string().datetime().optional(),
+  classId: z.string().trim().min(1, 'Class ID is required'),
+  date: z.string().trim().min(1, 'Date is required').datetime().optional(),
 });
 
 const ATTENDANCE_STATUSES = ['PRESENT', 'ABSENT', 'LATE'] as const;
@@ -70,6 +70,19 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
+      );
+    }
+
+    if (!session.user?.schoolId) {
+      if (formRequest) {
+        return NextResponse.redirect(
+          buildRedirectUrl(request, 'error', 'Teacher is not assigned to a school'),
+          { status: 303 }
+        );
+      }
+      return NextResponse.json(
+        { error: 'Teacher is not assigned to a school' },
+        { status: 400 }
       );
     }
 
@@ -176,7 +189,7 @@ export async function POST(request: Request) {
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Validation error', details: error.issues },
+        { error: 'Validation error', details: error.flatten() },
         { status: 400 }
       );
     }
@@ -254,7 +267,7 @@ export async function GET(request: Request) {
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Invalid request parameters', details: error.issues },
+        { error: 'Invalid request parameters', details: error.flatten() },
         { status: 400 }
       );
     }

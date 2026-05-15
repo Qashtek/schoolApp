@@ -129,6 +129,7 @@ export class AttendanceService {
       where: {
         id: { in: studentIds },
         classId: data.classId,
+        deletedAt: null,
       },
       select: {
         id: true,
@@ -151,6 +152,7 @@ export class AttendanceService {
         classId: data.classId,
         date: attendanceDate,
         studentId: { in: studentIds },
+        deletedAt: null,
       },
     });
 
@@ -179,6 +181,7 @@ export class AttendanceService {
         where: {
           classId: data.classId,
           date: attendanceDate,
+          deletedAt: null,
         },
         select: {
           id: true,
@@ -213,8 +216,8 @@ export class AttendanceService {
     this.requireTeacher();
 
     // Get teacher record
-    const teacher = await prisma.teacher.findUnique({
-      where: { userId: this.user.id },
+    const teacher = await prisma.teacher.findFirst({
+      where: { userId: this.user.id, deletedAt: null },
     });
 
     if (!teacher) {
@@ -238,6 +241,7 @@ export class AttendanceService {
           gte: startOfDay,
           lt: endOfDay,
         },
+        deletedAt: null,
       },
       select: {
         id: true,
@@ -278,8 +282,8 @@ export class AttendanceService {
     this.requireTeacher();
 
     // Get teacher record
-    const teacher = await prisma.teacher.findUnique({
-      where: { userId: this.user.id },
+    const teacher = await prisma.teacher.findFirst({
+      where: { userId: this.user.id, deletedAt: null },
     });
 
     if (!teacher) {
@@ -307,6 +311,7 @@ export class AttendanceService {
       where: {
         id: data.studentId,
         classId: data.classId,
+        deletedAt: null,
       },
       select: {
         id: true,
@@ -322,13 +327,12 @@ export class AttendanceService {
     attendanceDate.setHours(0, 0, 0, 0);
 
     // Check for existing attendance record for this date/student/class
-    const existingRecord = await prisma.attendance.findUnique({
+    const existingRecord = await prisma.attendance.findFirst({
       where: {
-        studentId_classId_date: {
-          studentId: data.studentId,
-          classId: data.classId,
-          date: attendanceDate,
-        },
+        studentId: data.studentId,
+        classId: data.classId,
+        date: attendanceDate,
+        deletedAt: null,
       },
     });
 
@@ -378,8 +382,8 @@ export class AttendanceService {
     this.requireTeacher();
 
     // Get teacher record
-    const teacher = await prisma.teacher.findUnique({
-      where: { userId: this.user.id },
+    const teacher = await prisma.teacher.findFirst({
+      where: { userId: this.user.id, deletedAt: null },
     });
 
     if (!teacher) {
@@ -387,8 +391,8 @@ export class AttendanceService {
     }
 
 
-    const attendance = await prisma.attendance.findUnique({
-      where: { id: attendanceId },
+    const attendance = await prisma.attendance.findFirst({
+      where: { id: attendanceId, deletedAt: null },
       include: {
         class: true,
       },

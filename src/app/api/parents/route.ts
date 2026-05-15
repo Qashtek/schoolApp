@@ -8,8 +8,8 @@ import { isAdmin } from '@/lib/permissions';
 
 // Zod schema for creating parent
 const createParentSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
-  email: z.string().email('Valid email is required'),
+  name: z.string().trim().min(1, 'Name is required'),
+  email: z.string().trim().min(1, 'Email is required').email('Valid email is required'),
 });
 
 /**

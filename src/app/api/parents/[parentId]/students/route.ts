@@ -7,7 +7,7 @@ import { ParentService } from '@/lib/services/parent.service';
 
 // Zod schema for linking/unlinking student
 const linkStudentSchema = z.object({
-  studentId: z.string().min(1, 'Student ID is required'),
+  studentId: z.string().trim().min(1, 'Student ID is required'),
 });
 
 /**
@@ -147,4 +147,3 @@ export async function DELETE(
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
-

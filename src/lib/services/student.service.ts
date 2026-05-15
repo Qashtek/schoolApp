@@ -51,6 +51,7 @@ export class StudentService {
     const existingStudent = data.userId
       ? await prisma.student.findUnique({
           where: { userId: data.userId },
+          include: { deletedAt: false },
         })
       : null;
 
@@ -63,6 +64,7 @@ export class StudentService {
       where: {
         admissionNumber: data.admissionNumber,
         schoolId: data.schoolId,
+        deletedAt: null,
       },
     });
 
@@ -117,8 +119,8 @@ export class StudentService {
    * All authenticated users can view student details
    */
   async getStudentById(id: string) {
-    const student = await prisma.student.findUnique({
-      where: { id },
+    const student = await prisma.student.findFirst({
+      where: { id, deletedAt: null },
       include: {
         user: {
           select: {
@@ -152,6 +154,7 @@ export class StudentService {
   }) {
     const resolvedClassId = options?.classId || options?.class;
     const where = {
+      deletedAt: null,
       ...(options?.grade && { grade: options.grade }),
       ...(resolvedClassId && { classId: resolvedClassId }),
     };
@@ -181,32 +184,39 @@ export class StudentService {
   /**
    * Get students that belong to a specific class
    */
-  async getStudentsByClass(classId: string) {
-    const students = await prisma.student.findMany({
-      where: { classId },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-        class: {
-          select: {
-            id: true,
-            name: true,
-            grade: true,
-          },
-        },
-      },
-      orderBy: [
-        { lastName: 'asc' },
-        { firstName: 'asc' },
-      ],
-    });
+  async getStudentsByClass(classId: string, options?: { skip?: number; take?: number }) {
+    const where = { classId, deletedAt: null };
 
-    return students;
+    const [students, count] = await prisma.$transaction([
+      prisma.student.findMany({
+        where,
+        skip: options?.skip,
+        take: options?.take,
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          class: {
+            select: {
+              id: true,
+              name: true,
+              grade: true,
+            },
+          },
+        },
+        orderBy: [
+          { lastName: 'asc' },
+          { firstName: 'asc' },
+        ],
+      }),
+      prisma.student.count({ where }),
+    ]);
+
+    return { students, count };
   }
 
   /**
@@ -216,8 +226,8 @@ export class StudentService {
   async updateStudent(id: string, data: UpdateStudentInput) {
     this.requireAdmin();
 
-    const student = await prisma.student.findUnique({
-      where: { id },
+    const student = await prisma.student.findFirst({
+      where: { id, deletedAt: null },
     });
 
     if (!student) {
@@ -251,16 +261,17 @@ export class StudentService {
   async deleteStudent(id: string) {
     this.requireAdmin();
 
-    const student = await prisma.student.findUnique({
-      where: { id },
+    const student = await prisma.student.findFirst({
+      where: { id, deletedAt: null },
     });
 
     if (!student) {
       throw new Error('Student not found');
     }
 
-    await prisma.student.delete({
+    await prisma.student.update({
       where: { id },
+      data: { deletedAt: new Date() },
     });
 
     return { success: true, message: 'Student deleted successfully' };
@@ -271,8 +282,8 @@ export class StudentService {
    * All authenticated users can view student details by user ID
    */
   async getStudentByUserId(userId: string) {
-    const student = await prisma.student.findUnique({
-      where: { userId },
+    const student = await prisma.student.findFirst({
+      where: { userId, deletedAt: null },
       include: {
         user: {
           select: {
@@ -299,7 +310,7 @@ export class StudentService {
    */
   async getStudentGrades(studentId: string) {
     const grades = await prisma.grade.findMany({
-      where: { studentId },
+      where: { studentId, deletedAt: null },
       include: {
         teacher: {
           include: {
@@ -323,7 +334,7 @@ export class StudentService {
    */
   async getStudentAttendance(studentId: string) {
     const attendances = await prisma.attendance.findMany({
-      where: { studentId },
+      where: { studentId, deletedAt: null },
       orderBy: { date: 'desc' },
     });
 

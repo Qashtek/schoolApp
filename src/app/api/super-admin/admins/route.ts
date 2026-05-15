@@ -6,10 +6,9 @@ import { authOptions, Role } from '@/lib/auth';
 import { SuperAdminService } from '@/lib/services/super-admin.service';
 
 const createAdminSchema = z.object({
-  name: z.string().min(1, 'Admin name is required'),
-  email: z.string().email('Valid email is required'),
+  name: z.string().trim().min(1, 'Admin name is required'),
+  email: z.string().trim().min(1, 'Email is required').email('Valid email is required'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
-  schoolId: z.string().min(1, 'School is required'),
 });
 
 function mapServiceErrorToStatus(message: string): number {
@@ -97,8 +96,27 @@ export async function POST(request: Request) {
     const body = await request.json();
     const validatedData = createAdminSchema.parse(body);
 
+    const schoolId = typeof body?.schoolId === 'string' ? body.schoolId.trim() : '';
+    if (!schoolId) {
+      return NextResponse.json(
+        {
+          error: 'Validation error',
+          details: {
+            formErrors: [],
+            fieldErrors: {
+              schoolId: ['School is required'],
+            },
+          },
+        },
+        { status: 400 }
+      );
+    }
+
     const service = new SuperAdminService(auth.user);
-    const admin = await service.createAdmin(validatedData);
+    const admin = await service.createAdmin({
+      ...validatedData,
+      schoolId,
+    });
 
     return NextResponse.json(admin, { status: 201 });
   } catch (error) {

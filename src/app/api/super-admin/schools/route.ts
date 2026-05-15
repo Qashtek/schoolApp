@@ -6,8 +6,8 @@ import { authOptions, Role } from '@/lib/auth';
 import { SuperAdminService } from '@/lib/services/super-admin.service';
 
 const createSchoolSchema = z.object({
-  name: z.string().min(1, 'School name is required'),
-  address: z.string().optional(),
+  name: z.string().trim().min(1, 'School name is required'),
+  address: z.string().trim().min(1, 'Address cannot be empty').optional(),
 });
 
 function mapServiceErrorToStatus(message: string): number {

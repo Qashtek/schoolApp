@@ -71,6 +71,7 @@ export class ClassService {
       where: {
         name: data.name,
         schoolId,
+        deletedAt: null,
       },
     });
 
@@ -120,8 +121,8 @@ export class ClassService {
     this.requireAdmin();
 
     // Verify class exists
-    const classExists = await prisma.class.findUnique({
-      where: { id: data.classId },
+    const classExists = await prisma.class.findFirst({
+      where: { id: data.classId, deletedAt: null },
     });
 
     if (!classExists) {
@@ -136,8 +137,8 @@ export class ClassService {
     }
 
     // Verify teacher exists
-    const teacherExists = await prisma.teacher.findUnique({
-      where: { id: data.teacherId },
+    const teacherExists = await prisma.teacher.findFirst({
+      where: { id: data.teacherId, deletedAt: null },
     });
 
     if (!teacherExists) {
@@ -205,6 +206,7 @@ export class ClassService {
     const schoolId = this.resolveSchoolScope(options?.schoolId);
 
     const where = {
+      deletedAt: null,
       ...(schoolId && { schoolId }),
     };
 
@@ -253,8 +255,8 @@ export class ClassService {
    * All authenticated users can view class details
    */
   async getClassById(id: string) {
-    const classRecord = await prisma.class.findUnique({
-      where: { id },
+    const classRecord = await prisma.class.findFirst({
+      where: { id, deletedAt: null },
       include: {
         school: true,
         teachers: {

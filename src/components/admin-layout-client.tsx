@@ -40,9 +40,9 @@ export function AdminLayoutClient({ session, children }: AdminLayoutClientProps)
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="flex h-screen overflow-hidden bg-gray-50">
       {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col">
+      <aside className="flex h-screen w-64 shrink-0 flex-col border-r border-gray-200 bg-white">
         {/* Logo/Brand */}
         <div className="p-6 border-b border-gray-200">
           <h1 className="text-xl font-semibold text-gray-900">Admin Portal</h1>
@@ -50,7 +50,7 @@ export function AdminLayoutClient({ session, children }: AdminLayoutClientProps)
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-1">
+        <nav className="flex-1 space-y-1 overflow-y-auto p-4">
           <Link
             href="/dashboard/admin"
             className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
@@ -159,7 +159,7 @@ export function AdminLayoutClient({ session, children }: AdminLayoutClientProps)
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto p-6">
+      <main className="h-screen flex-1 overflow-y-auto p-6">
         {children}
       </main>
     </div>

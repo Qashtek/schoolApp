@@ -26,6 +26,8 @@ model User {
   teacher Teacher?
   parent  Parent?
 
+  @@index([role])
+  @@index([schoolId])
   @@map("users")
 }
 
@@ -43,6 +45,7 @@ model Student {
   class           Class?   @relation(fields: [classId], references: [id])
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+  deletedAt       DateTime?
 
   // Relations
   attendances Attendance[]
@@ -50,6 +53,9 @@ model Student {
   parents     ParentStudent[]
 
   @@unique([schoolId, admissionNumber])
+  @@index([schoolId])
+  @@index([classId])
+  @@index([deletedAt])
   @@map("students")
 }
 
@@ -63,6 +69,7 @@ model Teacher {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  deletedAt DateTime?
 
   // Relations
   classes     TeacherClass[]
@@ -80,6 +87,7 @@ model Parent {
   school    School   @relation(fields: [schoolId], references: [id])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  deletedAt DateTime?
 
   // Relations
   students ParentStudent[]
@@ -128,6 +136,7 @@ model AcademicSession {
   isActive  Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  deletedAt DateTime?
 
   // Relations
   terms Term[]
@@ -145,6 +154,7 @@ model Term {
   endDate   DateTime
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
+  deletedAt DateTime?
 
   // Relations
   grades Grade[]
@@ -161,6 +171,7 @@ model Class {
   school      School?  @relation(fields: [schoolId], references: [id])
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
 
   // Relations
   teachers    TeacherClass[]
@@ -169,6 +180,8 @@ model Class {
   attendances Attendance[]
   grades      Grade[]
 
+  @@index([schoolId])
+  @@index([deletedAt])
   @@map("classes")
 }
 
@@ -181,6 +194,7 @@ model Subject {
   school      School   @relation(fields: [schoolId], references: [id])
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
 
   // Relations
   classes  ClassSubject[]
@@ -188,6 +202,8 @@ model Subject {
   grades   Grade[]
 
   @@unique([schoolId, code])
+  @@index([schoolId])
+  @@index([deletedAt])
   @@map("subjects")
 }
 
@@ -244,8 +260,13 @@ model Attendance {
   status    String   @default("PRESENT")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  deletedAt DateTime?
 
   @@unique([studentId, classId, date])
+  @@index([classId])
+  @@index([date])
+  @@index([schoolId])
+  @@index([studentId])
   @@map("attendances")
 }
 
@@ -267,8 +288,13 @@ model Grade {
   grade     String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  deletedAt DateTime?
 
   @@unique([studentId, subjectId, termId])
+  @@index([studentId])
+  @@index([subjectId])
+  @@index([termId])
+  @@index([schoolId])
   @@map("grades")
 }
 

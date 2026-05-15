@@ -10,6 +10,8 @@ import { prisma } from '@/lib/prisma';
 import { FlashSuccess } from '../sessions/flash-success';
 import { ConfirmSubmitButton } from '@/components/confirm-submit-button';
 
+const PAGE_SIZE = 20;
+
 async function deleteTeacherAction(formData: FormData) {
   'use server';
 
@@ -119,7 +121,7 @@ async function resetTeacherPasswordAction(formData: FormData) {
 export default async function AdminTeachersPage({
   searchParams,
 }: {
-  searchParams?: { teacherDeleted?: string; teacherPasswordReset?: string };
+  searchParams?: { teacherDeleted?: string; teacherPasswordReset?: string; page?: string };
 }) {
   const session = await getServerSession(authOptions);
 
@@ -146,13 +148,27 @@ export default async function AdminTeachersPage({
   };
 
   const teacherService = new TeacherService(user);
-  const { teachers } = await teacherService.getAllTeachers(
+  const requestedPage = Number(searchParams?.page ?? '1');
+  const currentPage = Number.isFinite(requestedPage) && requestedPage >= 1
+    ? Math.floor(requestedPage)
+    : 1;
+  const skip = (currentPage - 1) * PAGE_SIZE;
+
+  const { teachers, count } = await teacherService.getAllTeachers(
     userRole === 'SUPER_ADMIN'
-      ? undefined
+      ? {
+          skip,
+          take: PAGE_SIZE,
+        }
       : {
           schoolId: session.user.schoolId,
+          skip,
+          take: PAGE_SIZE,
         }
   );
+  const totalPages = Math.max(1, Math.ceil(count / PAGE_SIZE));
+  const previousPageHref = `/dashboard/admin/teachers?page=${Math.max(1, currentPage - 1)}`;
+  const nextPageHref = `/dashboard/admin/teachers?page=${currentPage + 1}`;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -296,7 +312,14 @@ export default async function AdminTeachersPage({
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Link
+                            href={`/dashboard/admin/teachers/${teacher.id}`}
+                            className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                          >
+                            <BookOpen className="w-3 h-3" />
+                            Subjects
+                          </Link>
                           <form action={resetTeacherPasswordAction}>
                             <input type="hidden" name="teacherId" value={teacher.id} />
                             <ConfirmSubmitButton
@@ -324,6 +347,38 @@ export default async function AdminTeachersPage({
               </table>
             </div>
           )}
+
+          <div className="flex items-center justify-between border-t border-gray-100 px-6 py-4">
+            {currentPage > 1 ? (
+              <Link
+                href={previousPageHref}
+                className="rounded border border-gray-300 px-3 py-1 text-sm text-gray-700 hover:bg-gray-50"
+              >
+                Previous
+              </Link>
+            ) : (
+              <span className="rounded border border-gray-200 px-3 py-1 text-sm text-gray-400">
+                Previous
+              </span>
+            )}
+
+            <p className="text-sm text-gray-600">
+              Page {Math.min(currentPage, totalPages)} of {totalPages}
+            </p>
+
+            {currentPage < totalPages ? (
+              <Link
+                href={nextPageHref}
+                className="rounded border border-gray-300 px-3 py-1 text-sm text-gray-700 hover:bg-gray-50"
+              >
+                Next
+              </Link>
+            ) : (
+              <span className="rounded border border-gray-200 px-3 py-1 text-sm text-gray-400">
+                Next
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Stats Cards */}
@@ -336,7 +391,7 @@ export default async function AdminTeachersPage({
               <div>
                 <p className="text-sm text-gray-500">Total Teachers</p>
                 <p className="text-2xl font-semibold text-gray-900">
-                  {teachers.length}
+                  {count}
                 </p>
               </div>
             </div>
