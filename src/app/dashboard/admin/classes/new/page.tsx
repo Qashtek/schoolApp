@@ -35,6 +35,7 @@ export default function NewClassPage() {
       }
 
       router.push('/dashboard/admin/classes');
+      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {

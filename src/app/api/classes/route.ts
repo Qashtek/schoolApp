@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { isAdmin, isSuperAdmin } from '@/lib/permissions';
@@ -92,6 +93,8 @@ export async function POST(request: NextRequest) {
             schoolId: session.user.schoolId,
           }
     );
+
+    revalidatePath('/dashboard/admin/classes');
 
     return NextResponse.json(newClass, { status: 201 });
   } catch (error) {
