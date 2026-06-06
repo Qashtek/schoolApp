@@ -6,7 +6,9 @@ import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 
 const assignClassesSchema = z.object({
-  classIds: z.array(z.string()).min(1, 'At least one class must be selected'),
+  classIds: z
+    .array(z.string().trim().min(1, 'Class ID is required'))
+    .min(1, 'At least one class must be selected'),
 });
 
 /**
@@ -89,7 +91,7 @@ export async function POST(
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Validation error', details: error.issues },
+        { error: 'Validation error', details: error.flatten() },
         { status: 400 }
       );
     }

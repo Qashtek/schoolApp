@@ -8,17 +8,15 @@ import { isAdmin } from '@/lib/permissions';
 
 // Input validation schema for creating a teacher
 const createTeacherSchema = z.object({
-  userId: z.string().min(1, 'User ID is required'),
-  schoolId: z.string().optional(),
-  subject: z.string().optional(),
+  userId: z.string().trim().min(1, 'User ID is required'),
+  subject: z.string().trim().min(1, 'Subject cannot be empty').optional(),
 });
 
 // Query validation schema for listing teachers
 const getTeachersSchema = z.object({
-  schoolId: z.string().optional(),
   isActive: z.coerce.boolean().optional(),
-  skip: z.coerce.number().int().min(0).optional().default(0),
-  take: z.coerce.number().int().min(1).max(100).optional().default(10),
+  page: z.coerce.number().int().min(1, 'Page must be at least 1').default(1),
+  limit: z.coerce.number().int().min(1, 'Limit must be at least 1').max(100, 'Limit must be at most 100').default(20),
 });
 
 /**
@@ -46,12 +44,18 @@ export async function GET(request: Request) {
       );
     }
 
+    if (!session.user?.schoolId) {
+      return NextResponse.json(
+        { error: 'Admin is not assigned to a school' },
+        { status: 400 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const params = {
-      schoolId: searchParams.get('schoolId') ?? undefined,
       isActive: searchParams.get('isActive') ?? undefined,
-      skip: searchParams.get('skip') ?? undefined,
-      take: searchParams.get('take') ?? undefined,
+      page: searchParams.get('page') ?? undefined,
+      limit: searchParams.get('limit') ?? undefined,
     };
 
     // Validate query parameters
@@ -64,21 +68,24 @@ export async function GET(request: Request) {
       schoolId: session.user.schoolId,
     };
 
+    const skip = (validatedParams.page - 1) * validatedParams.limit;
+
     const teacherService = new TeacherService(user);
     const { teachers, count } = await teacherService.getAllTeachers({
-      schoolId: validatedParams.schoolId,
+      schoolId: session.user.schoolId,
       isActive: validatedParams.isActive,
-      skip: validatedParams.skip,
-      take: validatedParams.take,
+      skip,
+      take: validatedParams.limit,
     });
+
+    const totalPages = Math.ceil(count / validatedParams.limit);
 
     return NextResponse.json({
       data: teachers,
-      meta: {
-        total: count,
-        skip: validatedParams.skip,
-        take: validatedParams.take,
-      },
+      total: count,
+      page: validatedParams.page,
+      limit: validatedParams.limit,
+      totalPages,
     });
   } catch (error) {
     console.error('Error fetching teachers:', error);
@@ -123,6 +130,13 @@ export async function POST(request: Request) {
       );
     }
 
+    if (!session.user?.schoolId) {
+      return NextResponse.json(
+        { error: 'Admin is not assigned to a school' },
+        { status: 400 }
+      );
+    }
+
     const body = await request.json();
 
     // Validate input
@@ -138,7 +152,7 @@ export async function POST(request: Request) {
     const teacherService = new TeacherService(user);
     const teacher = await teacherService.createTeacher({
       ...validatedData,
-      schoolId: validatedData.schoolId ?? session.user.schoolId,
+      schoolId: session.user.schoolId,
     });
 
     return NextResponse.json(teacher, { status: 201 });

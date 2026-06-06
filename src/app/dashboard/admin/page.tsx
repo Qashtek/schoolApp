@@ -2,7 +2,7 @@
 import { getServerSession } from 'next-auth';
 import { redirect } from 'next/navigation';
 import { authOptions } from '@/lib/auth';
-import { Users, GraduationCap, Calendar, BookOpen } from 'lucide-react';
+import { Users, GraduationCap, Calendar, BookOpen, Lock } from 'lucide-react';
 import Link from 'next/link';
 
 export default async function AdminDashboard() {
@@ -88,6 +88,21 @@ export default async function AdminDashboard() {
               <div>
                 <h2 className="text-lg font-medium text-gray-900">Subjects</h2>
                 <p className="text-sm text-gray-500">Manage subject catalog</p>
+              </div>
+            </div>
+          </section>
+        </Link>
+
+        {/* Change Password Section */}
+        <Link href="/dashboard/admin/change-password" className="block">
+          <section className="bg-white rounded-lg shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow duration-200 h-full">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-red-50 rounded-lg">
+                <Lock className="w-6 h-6 text-red-600" />
+              </div>
+              <div>
+                <h2 className="text-lg font-medium text-gray-900">Change Password</h2>
+                <p className="text-sm text-gray-500">Update your admin account password</p>
               </div>
             </div>
           </section>

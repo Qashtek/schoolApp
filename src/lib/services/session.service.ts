@@ -57,6 +57,7 @@ export class SessionService {
       where: {
         schoolId,
         name,
+        deletedAt: null,
       },
     });
 
@@ -93,7 +94,7 @@ export class SessionService {
 
     const [, activatedSession] = await prisma.$transaction([
       prisma.academicSession.updateMany({
-        where: { schoolId },
+        where: { schoolId, deletedAt: null },
         data: { isActive: false },
       }),
       prisma.academicSession.update({
@@ -136,6 +137,7 @@ export class SessionService {
       where: {
         id: sessionId,
         schoolId,
+        deletedAt: null,
       },
     });
 
@@ -147,6 +149,7 @@ export class SessionService {
       where: {
         sessionId,
         name,
+        deletedAt: null,
       },
     });
 
@@ -180,6 +183,7 @@ export class SessionService {
             schoolId,
           },
         },
+        deletedAt: null,
       },
     });
 
@@ -191,6 +195,7 @@ export class SessionService {
       prisma.term.updateMany({
         where: {
           sessionId: term.sessionId,
+          deletedAt: null,
         },
         data: {
           isActive: false,
@@ -216,6 +221,7 @@ export class SessionService {
       where: {
         schoolId,
         isActive: true,
+        deletedAt: null,
       },
       include: {
         terms: {
@@ -232,7 +238,7 @@ export class SessionService {
     const schoolId = this.requireSchoolId();
 
     return prisma.academicSession.findMany({
-      where: { schoolId },
+      where: { schoolId, deletedAt: null },
       include: {
         terms: {
           orderBy: [{ isActive: 'desc' }, { startDate: 'asc' }],
@@ -254,6 +260,7 @@ export class SessionService {
       where: {
         id: sessionId,
         schoolId,
+        deletedAt: null,
       },
       select: { id: true },
     });
@@ -265,6 +272,7 @@ export class SessionService {
     return prisma.term.findMany({
       where: {
         sessionId: session.id,
+        deletedAt: null,
       },
       orderBy: [{ isActive: 'desc' }, { startDate: 'asc' }],
     });
@@ -282,6 +290,7 @@ export class SessionService {
       where: {
         id: sessionId,
         schoolId,
+        deletedAt: null,
       },
       select: {
         id: true,
@@ -293,16 +302,18 @@ export class SessionService {
     }
 
     return prisma.$transaction(async (tx) => {
-      await tx.term.deleteMany({
+      await tx.term.updateMany({
         where: {
           sessionId: session.id,
         },
+        data: { deletedAt: new Date() },
       });
 
-      return tx.academicSession.delete({
+      return tx.academicSession.update({
         where: {
           id: session.id,
         },
+        data: { deletedAt: new Date() },
       });
     });
   }
@@ -328,6 +339,7 @@ export class SessionService {
             schoolId,
           },
         },
+        deletedAt: null,
       },
       select: {
         id: true,
@@ -338,10 +350,11 @@ export class SessionService {
       throw new Error('Term not found in your school');
     }
 
-    return prisma.term.delete({
+    return prisma.term.update({
       where: {
         id: term.id,
       },
+      data: { deletedAt: new Date() },
     });
   }
 }

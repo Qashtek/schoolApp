@@ -5,17 +5,19 @@ import { authOptions, type Role } from '@/lib/auth';
 import { GradeService } from '@/lib/services/grade.service';
 
 const upsertGradeSchema = z.object({
-  studentId: z.string().min(1, 'studentId is required'),
-  subjectId: z.string().min(1, 'subjectId is required'),
-  classId: z.string().min(1, 'classId is required'),
-  termId: z.string().min(1, 'termId is required'),
+  studentId: z.string().trim().min(1, 'studentId is required'),
+  subjectId: z.string().trim().min(1, 'subjectId is required'),
+  classId: z.string().trim().min(1, 'classId is required'),
+  termId: z.string().trim().min(1, 'termId is required'),
   caScore: z.number().min(0, 'caScore must be at least 0').max(100, 'caScore must be at most 100').optional(),
   examScore: z.number().min(0, 'examScore must be at least 0').max(100, 'examScore must be at most 100').optional(),
 }).strict();
 
 const getGradesByClassSchema = z.object({
-  classId: z.string().min(1, 'classId is required'),
-  termId: z.string().min(1, 'termId is required'),
+  classId: z.string().trim().min(1, 'classId is required'),
+  termId: z.string().trim().min(1, 'termId is required'),
+  page: z.coerce.number().int().min(1, 'Page must be at least 1').default(1),
+  limit: z.coerce.number().int().min(1, 'Limit must be at least 1').max(100, 'Limit must be at most 100').default(20),
 });
 
 function mapServiceErrorToStatus(message: string): number {
@@ -78,6 +80,8 @@ export async function GET(request: Request) {
     const query = {
       classId: searchParams.get('classId') ?? undefined,
       termId: searchParams.get('termId') ?? undefined,
+      page: searchParams.get('page') ?? undefined,
+      limit: searchParams.get('limit') ?? undefined,
     };
 
     const validatedQuery = getGradesByClassSchema.parse(query);
@@ -89,18 +93,34 @@ export async function GET(request: Request) {
       schoolId: session.user.schoolId,
     });
 
-    const grades = await gradeService.getGradesByClass(
+    const skip = (validatedQuery.page - 1) * validatedQuery.limit;
+    const { grades, count } = await gradeService.getGradesByClass(
       validatedQuery.classId,
-      validatedQuery.termId
+      validatedQuery.termId,
+      {
+        skip,
+        take: validatedQuery.limit,
+      }
     );
 
-    return NextResponse.json({ data: grades }, { status: 200 });
+    const totalPages = Math.ceil(count / validatedQuery.limit);
+
+    return NextResponse.json(
+      {
+        data: grades,
+        total: count,
+        page: validatedQuery.page,
+        limit: validatedQuery.limit,
+        totalPages,
+      },
+      { status: 200 }
+    );
   } catch (error) {
     console.error('Error fetching grades:', error);
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Validation error', details: error.issues },
+        { error: 'Validation error', details: error.flatten() },
         { status: 400 }
       );
     }
@@ -163,7 +183,7 @@ export async function POST(request: Request) {
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Validation error', details: error.issues },
+        { error: 'Validation error', details: error.flatten() },
         { status: 400 }
       );
     }

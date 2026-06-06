@@ -26,6 +26,8 @@ model User {
   teacher Teacher?
   parent  Parent?
 
+  @@index([role])
+  @@index([schoolId])
   @@map("users")
 }
 
@@ -34,10 +36,8 @@ model Student {
   firstName       String
   lastName        String
   admissionNumber String
-  userId          String   @unique
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  parentId        String?
-  parent          Parent?  @relation("ParentStudents", fields: [parentId], references: [id])
+  userId          String?  @unique
+  user            User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
   grade           String?
   schoolId        String
   school          School   @relation(fields: [schoolId], references: [id])
@@ -45,12 +45,17 @@ model Student {
   class           Class?   @relation(fields: [classId], references: [id])
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+  deletedAt       DateTime?
 
   // Relations
   attendances Attendance[]
   grades      Grade[]
+  parents     ParentStudent[]
 
   @@unique([schoolId, admissionNumber])
+  @@index([schoolId])
+  @@index([classId])
+  @@index([deletedAt])
   @@map("students")
 }
 
@@ -64,6 +69,7 @@ model Teacher {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  deletedAt DateTime?
 
   // Relations
   classes     TeacherClass[]
@@ -77,24 +83,39 @@ model Parent {
   id        String   @id @default(cuid())
   userId    String   @unique
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  schoolId  String
+  school    School   @relation(fields: [schoolId], references: [id])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  deletedAt DateTime?
 
   // Relations
-  students Student[] @relation("ParentStudents")
+  students ParentStudent[]
 
   @@map("parents")
+}
+
+model ParentStudent {
+  parentId String
+  parent   Parent  @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@id([parentId, studentId])
+  @@map("parent_students")
 }
 
 model School {
   id        String   @id @default(cuid())
   name      String
   address   String?
+  logoUrl   String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relations
   users            User[]
+  parents          Parent[]
   teachers         Teacher[]
   classes          Class[]
   students         Student[]
@@ -115,6 +136,7 @@ model AcademicSession {
   isActive  Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  deletedAt DateTime?
 
   // Relations
   terms Term[]
@@ -132,6 +154,7 @@ model Term {
   endDate   DateTime
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
+  deletedAt DateTime?
 
   // Relations
   grades Grade[]
@@ -148,6 +171,7 @@ model Class {
   school      School?  @relation(fields: [schoolId], references: [id])
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
 
   // Relations
   teachers    TeacherClass[]
@@ -156,6 +180,8 @@ model Class {
   attendances Attendance[]
   grades      Grade[]
 
+  @@index([schoolId])
+  @@index([deletedAt])
   @@map("classes")
 }
 
@@ -168,6 +194,7 @@ model Subject {
   school      School   @relation(fields: [schoolId], references: [id])
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
 
   // Relations
   classes  ClassSubject[]
@@ -175,6 +202,8 @@ model Subject {
   grades   Grade[]
 
   @@unique([schoolId, code])
+  @@index([schoolId])
+  @@index([deletedAt])
   @@map("subjects")
 }
 
@@ -231,8 +260,13 @@ model Attendance {
   status    String   @default("PRESENT")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  deletedAt DateTime?
 
   @@unique([studentId, classId, date])
+  @@index([classId])
+  @@index([date])
+  @@index([schoolId])
+  @@index([studentId])
   @@map("attendances")
 }
 
@@ -254,8 +288,13 @@ model Grade {
   grade     String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  deletedAt DateTime?
 
   @@unique([studentId, subjectId, termId])
+  @@index([studentId])
+  @@index([subjectId])
+  @@index([termId])
+  @@index([schoolId])
   @@map("grades")
 }
 

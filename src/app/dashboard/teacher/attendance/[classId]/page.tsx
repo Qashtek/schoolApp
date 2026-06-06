@@ -63,9 +63,13 @@ export default async function AttendancePage({ params }: PageProps) {
     // Get class details with students
     const classWithStudents = await prisma.class.findUnique({
       where: { id: classId },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        grade: true,
         students: {
-          include: {
+          select: {
+            id: true,
             user: {
               select: {
                 id: true,
@@ -75,7 +79,12 @@ export default async function AttendancePage({ params }: PageProps) {
             },
           },
         },
-        school: true,
+        school: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
       },
     });
 

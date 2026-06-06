@@ -1,75 +1,112 @@
-import { withAuth } from 'next-auth/middleware'
-import { NextResponse } from 'next/server'
+import { withAuth } from 'next-auth/middleware';
+import { NextResponse } from 'next/server';
+
+function matchesPrefix(pathname: string, prefix: string) {
+  return pathname === prefix || pathname.startsWith(`${prefix}/`);
+}
+
+function getRoleDashboard(role: string) {
+  if (role === 'SUPER_ADMIN') return '/dashboard/super-admin';
+  if (role === 'ADMIN') return '/dashboard/admin';
+  if (role === 'TEACHER') return '/dashboard/teacher';
+  if (role === 'STUDENT') return '/dashboard/student';
+  if (role === 'PARENT') return '/dashboard/parent';
+  return '/dashboard';
+}
 
 export default withAuth(
   function middleware(req) {
-    const token = req.nextauth.token
-    const isAuth = !!token
-    const isAuthPage = req.nextUrl.pathname.startsWith('/login')
-    const isApiAuthRoute = req.nextUrl.pathname.startsWith('/api/auth')
-    const isDashboardRoute = req.nextUrl.pathname.startsWith('/dashboard')
+    const { pathname } = req.nextUrl;
+    const token = req.nextauth.token;
+    const isAuthenticated = Boolean(token);
 
-    // Allow API auth routes to pass through
-    if (isApiAuthRoute) {
-      return NextResponse.next()
+    const isLoginRoute = pathname === '/login';
+    const isApiAuthRoute = matchesPrefix(pathname, '/api/auth');
+    const isPublicRoute = isLoginRoute || isApiAuthRoute;
+
+    const isAdminDashboard = matchesPrefix(pathname, '/dashboard/admin');
+    const isTeacherDashboard = matchesPrefix(pathname, '/dashboard/teacher');
+    const isStudentDashboard = matchesPrefix(pathname, '/dashboard/student');
+    const isParentDashboard = matchesPrefix(pathname, '/dashboard/parent');
+    const isSuperAdminDashboard = matchesPrefix(pathname, '/dashboard/super-admin');
+
+    const isProtectedDashboardRoute =
+      isAdminDashboard ||
+      isTeacherDashboard ||
+      isStudentDashboard ||
+      isParentDashboard ||
+      isSuperAdminDashboard;
+
+    const isProtectedApiRoute =
+      matchesPrefix(pathname, '/api/students') ||
+      matchesPrefix(pathname, '/api/teachers') ||
+      matchesPrefix(pathname, '/api/classes') ||
+      matchesPrefix(pathname, '/api/subjects') ||
+      matchesPrefix(pathname, '/api/grades') ||
+      matchesPrefix(pathname, '/api/attendance');
+
+    const isProtectedRoute = isProtectedDashboardRoute || isProtectedApiRoute;
+
+    if (isPublicRoute) {
+      return NextResponse.next();
     }
 
-    // Handle login page specially
-    if (isAuthPage) {
-      // Allow authenticated users to access login page (for logout purposes)
-      return NextResponse.next()
+    if (!isAuthenticated && isProtectedRoute) {
+      return NextResponse.redirect(new URL('/login', req.url));
     }
 
-    // Only redirect to login if trying to access protected dashboard routes
-    if (!isAuth && isDashboardRoute) {
-      let from = req.nextUrl.pathname
-      if (req.nextUrl.search) {
-        from += req.nextUrl.search
-      }
-
-      return NextResponse.redirect(
-        new URL(`/login?from=${encodeURIComponent(from)}`, req.url)
-      )
+    if (!isAuthenticated) {
+      return NextResponse.next();
     }
 
-    // Role-based protection for dashboard routes
-    if (isDashboardRoute) {
-      const userRole = token.role as string
+    if (isProtectedDashboardRoute) {
+      const userRole = String(token?.role ?? '');
+      const roleDashboard = getRoleDashboard(userRole);
 
-      if (req.nextUrl.pathname.startsWith('/dashboard/admin')) {
-        if (userRole !== 'ADMIN' && userRole !== 'SUPER_ADMIN') {
-          return NextResponse.redirect(new URL('/dashboard', req.url))
-        }
+      if (isSuperAdminDashboard && userRole !== 'SUPER_ADMIN') {
+        return NextResponse.redirect(new URL(roleDashboard, req.url));
       }
 
-      if (req.nextUrl.pathname.startsWith('/dashboard/teacher')) {
-        if (userRole !== 'TEACHER') {
-          return NextResponse.redirect(new URL('/dashboard', req.url))
-        }
+      if (isAdminDashboard && userRole !== 'ADMIN' && userRole !== 'SUPER_ADMIN') {
+        return NextResponse.redirect(new URL(roleDashboard, req.url));
       }
 
-      if (req.nextUrl.pathname.startsWith('/dashboard/student')) {
-        if (userRole !== 'STUDENT') {
-          return NextResponse.redirect(new URL('/dashboard', req.url))
-        }
+      if (isTeacherDashboard && userRole !== 'TEACHER') {
+        return NextResponse.redirect(new URL(roleDashboard, req.url));
       }
 
-      if (req.nextUrl.pathname.startsWith('/dashboard/parent')) {
-        if (userRole !== 'PARENT') {
-          return NextResponse.redirect(new URL('/dashboard', req.url))
-        }
+      if (isStudentDashboard && userRole !== 'STUDENT') {
+        return NextResponse.redirect(new URL(roleDashboard, req.url));
+      }
+
+      if (isParentDashboard && userRole !== 'PARENT') {
+        return NextResponse.redirect(new URL(roleDashboard, req.url));
       }
     }
 
-    return NextResponse.next()
+    return NextResponse.next();
   },
   {
     callbacks: {
-      authorized: () => true, // Let the middleware function handle authorization
+      authorized: () => true,
     },
   }
-)
+);
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/login', '/api/auth/:path*'],
-}
+  matcher: [
+    '/dashboard/admin/:path*',
+    '/dashboard/teacher/:path*',
+    '/dashboard/student/:path*',
+    '/dashboard/parent/:path*',
+    '/dashboard/super-admin/:path*',
+    '/api/students/:path*',
+    '/api/teachers/:path*',
+    '/api/classes/:path*',
+    '/api/subjects/:path*',
+    '/api/grades/:path*',
+    '/api/attendance/:path*',
+    '/login',
+    '/api/auth/:path*',
+  ],
+};

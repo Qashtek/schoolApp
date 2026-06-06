@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { ArrowLeft, Save, User, Mail, Lock, BookOpen } from 'lucide-react';
 
 interface Class {
@@ -16,6 +17,12 @@ interface Class {
     teachers: number;
     students: number;
   };
+}
+
+interface SubjectOption {
+  id: string;
+  name: string;
+  code: string;
 }
 
 interface FormData {
@@ -38,6 +45,7 @@ export default function NewTeacherPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [classes, setClasses] = useState<Class[]>([]);
+  const [subjects, setSubjects] = useState<SubjectOption[]>([]);
   const [formData, setFormData] = useState<FormData>({
     name: '',
     email: '',
@@ -47,20 +55,46 @@ export default function NewTeacherPage() {
   });
   const [errors, setErrors] = useState<FormErrors>({});
 
-  // Fetch classes on component mount
+  const normalizeListResponse = <T,>(payload: unknown): T[] => {
+    if (Array.isArray(payload)) {
+      return payload as T[];
+    }
+
+    if (
+      payload &&
+      typeof payload === 'object' &&
+      Array.isArray((payload as { data?: unknown }).data)
+    ) {
+      return (payload as { data: T[] }).data;
+    }
+
+    return [];
+  };
+
+  // Fetch classes and subjects on component mount
   useEffect(() => {
-    const fetchClasses = async () => {
+    const fetchData = async () => {
       try {
-        const response = await fetch('/api/classes');
-        if (response.ok) {
-          const data = await response.json();
-          setClasses(data);
+        const [classesResponse, subjectsResponse] = await Promise.all([
+          fetch('/api/classes?limit=100'),
+          fetch('/api/subjects?limit=100'),
+        ]);
+
+        if (classesResponse.ok) {
+          const classesData = await classesResponse.json();
+          setClasses(normalizeListResponse<Class>(classesData));
+        }
+
+        if (subjectsResponse.ok) {
+          const subjectsData = await subjectsResponse.json();
+          setSubjects(normalizeListResponse<SubjectOption>(subjectsData));
         }
       } catch (error) {
-        console.error('Error fetching classes:', error);
+        console.error('Error fetching page data:', error);
       }
     };
-    fetchClasses();
+
+    fetchData();
   }, []);
 
   const validateForm = (): boolean => {
@@ -82,7 +116,7 @@ export default function NewTeacherPage() {
       newErrors.password = 'Password must be at least 6 characters';
     }
 
-    if (!formData.subject.trim()) {
+    if (subjects.length > 0 && !formData.subject.trim()) {
       newErrors.subject = 'Subject is required';
     }
 
@@ -296,20 +330,40 @@ export default function NewTeacherPage() {
                 {/* Subject */}
                 <div>
                   <label htmlFor="subject" className="block text-sm font-medium text-gray-700">
-                    Subject *
+                    Subject {subjects.length > 0 ? '*' : ''}
                   </label>
-                  <input
-                    type="text"
+                  <select
                     id="subject"
                     value={formData.subject}
                     onChange={(e) => setFormData(prev => ({ ...prev, subject: e.target.value }))}
+                    disabled={subjects.length === 0}
                     className={`mt-1 block w-full px-3 py-2 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                       errors.subject ? 'border-red-300' : 'border-gray-300'
                     }`}
-                    placeholder="e.g., Mathematics, English, Science"
-                  />
+                  >
+                    <option value="">
+                      {subjects.length === 0 ? 'No subjects created yet' : 'Select a subject'}
+                    </option>
+                    {subjects.map((subject) => (
+                      <option key={subject.id} value={subject.name}>
+                        {subject.name} ({subject.code})
+                      </option>
+                    ))}
+                  </select>
                   {errors.subject && (
                     <p className="mt-1 text-sm text-red-600">{errors.subject}</p>
+                  )}
+                  {subjects.length === 0 && (
+                    <p className="mt-2 text-sm text-gray-600">
+                      No subjects available.{' '}
+                      <Link
+                        href="/dashboard/admin/subjects/new"
+                        className="font-medium text-blue-600 hover:text-blue-700"
+                      >
+                        Create Subject
+                      </Link>
+                      .
+                    </p>
                   )}
                 </div>
               </div>

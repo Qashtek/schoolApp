@@ -68,45 +68,7 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        // Demo hardcoded admin user for testing
-        if (
-          credentials.email === DEMO_ADMIN_EMAIL &&
-          credentials.password === DEMO_ADMIN_PASSWORD
-        ) {
-          const existingSchool = await prisma.school.findFirst({
-            where: { name: DEMO_SCHOOL_NAME },
-          });
-          const school =
-            existingSchool ??
-            (await prisma.school.create({
-              data: { name: DEMO_SCHOOL_NAME },
-            }));
-
-          const demoAdmin = await prisma.user.upsert({
-            where: { email: DEMO_ADMIN_EMAIL },
-            update: {
-              name: 'Admin User',
-              role: 'ADMIN',
-              schoolId: school.id,
-            },
-            create: {
-              email: DEMO_ADMIN_EMAIL,
-              name: 'Admin User',
-              role: 'ADMIN',
-              schoolId: school.id,
-            },
-          });
-
-          return {
-            id: demoAdmin.id,
-            email: demoAdmin.email,
-            name: demoAdmin.name,
-            role: demoAdmin.role as Role,
-            schoolId: demoAdmin.schoolId ?? school.id,
-          };
-        }
-
-        // For real implementation, verify against database
+        // For all users, verify against database
         const user = await prisma.user.findUnique({
           where: { email: credentials.email },
           include: {
@@ -115,7 +77,13 @@ export const authOptions: NextAuthOptions = {
             parent: {
               select: {
                 students: {
-                  select: { schoolId: true },
+                  select: {
+                    student: {
+                      select: {
+                        schoolId: true,
+                      },
+                    },
+                  },
                   take: 1,
                 },
               },
@@ -176,7 +144,7 @@ export const authOptions: NextAuthOptions = {
           user.schoolId ??
           teacherSchoolId ??
           user.student?.schoolId ??
-          user.parent?.students[0]?.schoolId;
+          user.parent?.students[0]?.student?.schoolId;
 
         return {
           id: user.id,

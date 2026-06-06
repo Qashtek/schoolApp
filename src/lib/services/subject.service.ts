@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { Role } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
@@ -57,6 +58,7 @@ export class SubjectService {
 
     const name = data.name.trim();
     const code = data.code.trim();
+    const description = data.description?.trim() || null;
 
     if (!name) {
       throw new Error('Subject name is required');
@@ -75,18 +77,36 @@ export class SubjectService {
       },
     });
 
-    if (existingSubject) {
+    if (existingSubject && existingSubject.deletedAt === null) {
       throw new Error('A subject with this code already exists in your school');
     }
 
-    return prisma.subject.create({
-      data: {
-        name,
-        code,
-        description: data.description?.trim() || null,
-        schoolId,
-      },
-    });
+    if (existingSubject && existingSubject.deletedAt !== null) {
+      return prisma.subject.update({
+        where: { id: existingSubject.id },
+        data: {
+          name,
+          description,
+          deletedAt: null,
+        },
+      });
+    }
+
+    try {
+      return await prisma.subject.create({
+        data: {
+          name,
+          code,
+          description,
+          schoolId,
+        },
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new Error('A subject with this code already exists in your school');
+      }
+      throw error;
+    }
   }
 
   async updateSubject(subjectId: string, data: UpdateSubjectInput) {
@@ -97,6 +117,7 @@ export class SubjectService {
       where: {
         id: subjectId,
         schoolId,
+        deletedAt: null,
       },
     });
 
@@ -116,11 +137,12 @@ export class SubjectService {
     }
 
     if (nextCode && nextCode !== subject.code) {
-      const duplicate = await prisma.subject.findUnique({
+      const duplicate = await prisma.subject.findFirst({
         where: {
-          schoolId_code: {
-            schoolId,
-            code: nextCode,
+          schoolId,
+          code: nextCode,
+          NOT: {
+            id: subjectId,
           },
         },
       });
@@ -130,16 +152,23 @@ export class SubjectService {
       }
     }
 
-    return prisma.subject.update({
-      where: { id: subjectId },
-      data: {
-        ...(nextName !== undefined && { name: nextName }),
-        ...(nextCode !== undefined && { code: nextCode }),
-        ...(data.description !== undefined && {
-          description: data.description?.trim() || null,
-        }),
-      },
-    });
+    try {
+      return await prisma.subject.update({
+        where: { id: subjectId },
+        data: {
+          ...(nextName !== undefined && { name: nextName }),
+          ...(nextCode !== undefined && { code: nextCode }),
+          ...(data.description !== undefined && {
+            description: data.description?.trim() || null,
+          }),
+        },
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new Error('A subject with this code already exists in your school');
+      }
+      throw error;
+    }
   }
 
   async deleteSubject(subjectId: string) {
@@ -150,6 +179,7 @@ export class SubjectService {
       where: {
         id: subjectId,
         schoolId,
+        deletedAt: null,
       },
     });
 
@@ -157,30 +187,40 @@ export class SubjectService {
       throw new Error('Subject not found in your school');
     }
 
-    return prisma.subject.delete({
+    return prisma.subject.update({
       where: { id: subjectId },
+      data: { deletedAt: new Date() },
     });
   }
 
-  async getAllSubjects() {
+  async getAllSubjects(options?: { skip?: number; take?: number }) {
     this.requireAdmin();
     const schoolId = this.requireSchoolId();
 
-    return prisma.subject.findMany({
-      where: { schoolId },
-      include: {
-        _count: {
-          select: {
-            classes: true,
-            teachers: true,
+    const where = { schoolId, deletedAt: null };
+
+    const [subjects, count] = await prisma.$transaction([
+      prisma.subject.findMany({
+        where,
+        skip: options?.skip,
+        take: options?.take,
+        include: {
+          _count: {
+            select: {
+              classes: true,
+              teachers: true,
+            },
           },
         },
-      },
-      orderBy: [
-        { name: 'asc' },
-        { createdAt: 'desc' },
-      ],
-    });
+        orderBy: [
+          { name: 'asc' },
+          { createdAt: 'desc' },
+        ],
+      }),
+      prisma.subject.count({ where }),
+    ]);
+
+    return { subjects, count };
   }
 
   async getSubjectWithAssignedClasses(subjectId: string) {
@@ -191,6 +231,7 @@ export class SubjectService {
       where: {
         id: subjectId,
         schoolId,
+        deletedAt: null,
       },
       include: {
         classes: {
@@ -219,6 +260,7 @@ export class SubjectService {
       where: {
         id: subjectId,
         schoolId,
+        deletedAt: null,
       },
       include: {
         teachers: {
@@ -258,12 +300,14 @@ export class SubjectService {
         where: {
           id: data.subjectId,
           schoolId,
+          deletedAt: null,
         },
       }),
       prisma.class.findFirst({
         where: {
           id: data.classId,
           schoolId,
+          deletedAt: null,
         },
       }),
     ]);
@@ -310,12 +354,14 @@ export class SubjectService {
         where: {
           id: data.subjectId,
           schoolId,
+          deletedAt: null,
         },
       }),
       prisma.teacher.findFirst({
         where: {
           id: data.teacherId,
           schoolId,
+          deletedAt: null,
         },
       }),
     ]);

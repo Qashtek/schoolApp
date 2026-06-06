@@ -52,8 +52,8 @@ export class TeacherService {
     this.requireAdmin();
 
     // Check if user already exists as a teacher
-    const existingTeacher = await prisma.teacher.findUnique({
-      where: { userId: data.userId },
+    const existingTeacher = await prisma.teacher.findFirst({
+      where: { userId: data.userId, deletedAt: null },
     });
 
     if (existingTeacher) {
@@ -109,8 +109,8 @@ export class TeacherService {
    * Get a teacher by ID with assigned classes
    */
   async getTeacherById(id: string) {
-    const teacher = await prisma.teacher.findUnique({
-      where: { id },
+    const teacher = await prisma.teacher.findFirst({
+      where: { id, deletedAt: null },
       include: {
         user: {
           select: {
@@ -152,6 +152,7 @@ export class TeacherService {
       : true;
 
     const where = {
+      deletedAt: null,
       ...(options?.schoolId && { schoolId: options.schoolId }),
       ...(isActiveFilter !== undefined && { isActive: isActiveFilter }),
     };
@@ -193,8 +194,8 @@ export class TeacherService {
     this.requireAdmin();
 
     // Verify teacher exists
-    const teacher = await prisma.teacher.findUnique({
-      where: { id: data.teacherId },
+    const teacher = await prisma.teacher.findFirst({
+      where: { id: data.teacherId, deletedAt: null },
     });
 
     if (!teacher) {
@@ -205,6 +206,7 @@ export class TeacherService {
     const classes = await prisma.class.findMany({
       where: {
         id: { in: data.classIds },
+        deletedAt: null,
       },
     });
 
@@ -247,8 +249,8 @@ export class TeacherService {
     }
 
     // Verify class exists
-    const classRecord = await prisma.class.findUnique({
-      where: { id: classId },
+    const classRecord = await prisma.class.findFirst({
+      where: { id: classId, deletedAt: null },
     });
 
     if (!classRecord) {
@@ -287,8 +289,8 @@ export class TeacherService {
     this.requireAdmin();
 
     // Verify teacher exists
-    const teacher = await prisma.teacher.findUnique({
-      where: { id: teacherId },
+    const teacher = await prisma.teacher.findFirst({
+      where: { id: teacherId, deletedAt: null },
     });
 
     if (!teacher) {
@@ -315,8 +317,8 @@ export class TeacherService {
   async updateTeacher(id: string, data: UpdateTeacherInput) {
     this.requireAdmin();
 
-    const teacher = await prisma.teacher.findUnique({
-      where: { id },
+    const teacher = await prisma.teacher.findFirst({
+      where: { id, deletedAt: null },
     });
 
     if (!teacher) {
@@ -368,8 +370,8 @@ export class TeacherService {
   async deactivateTeacher(id: string) {
     this.requireAdmin();
 
-    const teacher = await prisma.teacher.findUnique({
-      where: { id },
+    const teacher = await prisma.teacher.findFirst({
+      where: { id, deletedAt: null },
     });
 
     if (!teacher) {
@@ -391,8 +393,8 @@ export class TeacherService {
   async activateTeacher(id: string) {
     this.requireAdmin();
 
-    const teacher = await prisma.teacher.findUnique({
-      where: { id },
+    const teacher = await prisma.teacher.findFirst({
+      where: { id, deletedAt: null },
     });
 
     if (!teacher) {
@@ -408,22 +410,23 @@ export class TeacherService {
   }
 
   /**
-   * Delete a teacher record (hard delete)
+   * Delete a teacher record (soft delete)
    * Only ADMIN can delete teachers
    */
   async deleteTeacher(id: string) {
     this.requireAdmin();
 
-    const teacher = await prisma.teacher.findUnique({
-      where: { id },
+    const teacher = await prisma.teacher.findFirst({
+      where: { id, deletedAt: null },
     });
 
     if (!teacher) {
       throw new Error('Teacher not found');
     }
 
-    await prisma.teacher.delete({
+    await prisma.teacher.update({
       where: { id },
+      data: { deletedAt: new Date() },
     });
 
     return { success: true, message: 'Teacher deleted successfully' };
@@ -433,8 +436,8 @@ export class TeacherService {
    * Get teacher by user ID
    */
   async getTeacherByUserId(userId: string) {
-    const teacher = await prisma.teacher.findUnique({
-      where: { userId },
+    const teacher = await prisma.teacher.findFirst({
+      where: { userId, deletedAt: null },
       include: {
         user: {
           select: {
@@ -473,12 +476,54 @@ export class TeacherService {
    */
   async getTeacherClasses(teacherId: string) {
     const assignments = await prisma.teacherClass.findMany({
-      where: { teacherId },
+      where: { teacherId, teacher: { deletedAt: null } },
       include: {
         class: true,
       },
     });
 
     return assignments.map(a => a.class);
+  }
+
+  /**
+   * Reset teacher password to default (email prefix)
+   * Only ADMIN can reset teacher passwords
+   */
+  async resetTeacherPasswordToDefault(teacherId: string) {
+    this.requireAdmin();
+
+    const teacher = await prisma.teacher.findFirst({
+      where: { id: teacherId, deletedAt: null },
+      select: {
+        id: true,
+        schoolId: true,
+        user: {
+          select: {
+            id: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    if (!teacher) {
+      throw new Error('Teacher not found');
+    }
+
+    const normalizedEmail = teacher.user.email.trim().toLowerCase();
+    const emailPrefix = normalizedEmail.split('@')[0]?.trim();
+
+    if (!emailPrefix) {
+      throw new Error('Cannot derive default password from teacher email');
+    }
+
+    const hashedPassword = await hash(emailPrefix, 12);
+
+    await prisma.user.update({
+      where: { id: teacher.user.id },
+      data: { password: hashedPassword },
+    });
+
+    return { success: true };
   }
 }

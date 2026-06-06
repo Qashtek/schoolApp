@@ -7,17 +7,19 @@ import { isAdmin } from '@/lib/permissions';
 
 // Input validation schema for creating student
 const createStudentSchema = z.object({
-  userId: z.string().min(1, 'User ID is required').optional(),
-  firstName: z.string().min(1, 'First name is required'),
-  lastName: z.string().min(1, 'Last name is required'),
-  admissionNumber: z.string().min(1, 'Admission number is required'),
-  grade: z.string().optional(),
-  classId: z.string().optional(),
+  userId: z.string().trim().min(1, 'User ID is required').optional(),
+  firstName: z.string().trim().min(1, 'First name is required'),
+  lastName: z.string().trim().min(1, 'Last name is required'),
+  admissionNumber: z.string().trim().min(1, 'Admission number is required'),
+  grade: z.string().trim().min(1, 'Grade cannot be empty').optional(),
+  classId: z.string().trim().min(1, 'Class ID cannot be empty').optional(),
 });
 
 // Query validation schema for getting students by class
 const getStudentsByClassSchema = z.object({
-  classId: z.string().min(1, 'Class ID is required'),
+  classId: z.string().trim().min(1, 'Class ID is required'),
+  page: z.coerce.number().int().min(1, 'Page must be at least 1').default(1),
+  limit: z.coerce.number().int().min(1, 'Limit must be at least 1').max(100, 'Limit must be at most 100').default(20),
 });
 
 /**
@@ -38,6 +40,8 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const params = {
       classId: searchParams.get('classId') ?? undefined,
+      page: searchParams.get('page') ?? undefined,
+      limit: searchParams.get('limit') ?? undefined,
     };
 
     // Validate query parameters
@@ -60,17 +64,27 @@ export async function GET(request: Request) {
     }
 
     const studentService = new StudentService(user);
-    const students = await studentService.getStudentsByClass(validatedParams.classId);
+    const skip = (validatedParams.page - 1) * validatedParams.limit;
+    const { students, count } = await studentService.getStudentsByClass(validatedParams.classId, {
+      skip,
+      take: validatedParams.limit,
+    });
+
+    const totalPages = Math.ceil(count / validatedParams.limit);
 
     return NextResponse.json({
       data: students,
+      total: count,
+      page: validatedParams.page,
+      limit: validatedParams.limit,
+      totalPages,
     });
   } catch (error) {
     console.error('Error fetching students:', error);
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Invalid request parameters', details: error.issues },
+        { error: 'Invalid request parameters', details: error.flatten() },
         { status: 400 }
       );
     }
@@ -138,7 +152,7 @@ export async function POST(request: Request) {
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Validation error', details: error.issues },
+        { error: 'Validation error', details: error.flatten() },
         { status: 400 }
       );
     }
