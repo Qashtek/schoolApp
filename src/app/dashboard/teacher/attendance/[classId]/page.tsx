@@ -39,27 +39,15 @@ export default async function AttendancePage({ params }: PageProps) {
   const teacherService = new TeacherService(user);
   const attendanceService = new AttendanceService(user);
 
+  const teacher = await teacherService.getTeacherByUserId(session.user.id);
+
+  const isClassTeacher = await teacherService.isClassTeacherOf(teacher.id, classId);
+
+  if (!isClassTeacher) {
+    redirect(`/dashboard/teacher?error=${encodeURIComponent('You are not the class teacher of this class')}`);
+  }
+
   try {
-    // Check if teacher is assigned to this class
-    const teacher = await teacherService.getTeacherByUserId(session.user.id);
-    const isAssigned = teacher.classes.some((entry) => {
-      const record = entry as { id?: string; classId?: string; class?: { id?: string } };
-
-      if (record.class?.id) {
-        return record.class.id === classId;
-      }
-
-      if (record.classId) {
-        return record.classId === classId;
-      }
-
-      return record.id === classId;
-    });
-
-    if (!isAssigned) {
-      redirect('/dashboard/teacher');
-    }
-
     // Get class details with students
     const classWithStudents = await prisma.class.findUnique({
       where: { id: classId },

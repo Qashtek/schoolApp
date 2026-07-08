@@ -94,8 +94,8 @@ export default function NewParentPage() {
         return;
       }
 
-      router.refresh();
       router.push('/dashboard/admin/parents');
+      router.refresh();
     } catch (error) {
       setErrors({
         general: error instanceof Error ? error.message : 'An unexpected error occurred',

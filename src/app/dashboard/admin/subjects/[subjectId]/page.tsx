@@ -117,7 +117,7 @@ export default async function AdminSubjectDetailPage({
             createdAt: 'desc',
           },
         },
-        teachers: {
+        classSubjects: {
           include: {
             teacher: {
               include: {
@@ -170,7 +170,8 @@ export default async function AdminSubjectDetailPage({
   }
 
   const assignedClassIds = new Set(subject.classes.map((entry) => entry.classId));
-  const assignedTeacherIds = new Set(subject.teachers.map((entry) => entry.teacherId));
+  // Collect unique teacher IDs from classSubjects (a teacher may teach this subject in multiple classes)
+  const assignedTeacherIds = new Set(subject.classSubjects.map((entry) => entry.teacherId));
 
   const availableClasses = classes.filter((entry) => !assignedClassIds.has(entry.id));
   const availableTeachers = teachers.filter((entry) => !assignedTeacherIds.has(entry.id));
@@ -305,11 +306,11 @@ export default async function AdminSubjectDetailPage({
 
         <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-gray-900">Assigned Teachers</h2>
-          {subject.teachers.length === 0 ? (
+          {subject.classSubjects.length === 0 ? (
             <p className="mt-3 text-sm text-gray-500">No teachers assigned yet.</p>
           ) : (
             <ul className="mt-3 space-y-2">
-              {subject.teachers.map((entry) => (
+              {subject.classSubjects.map((entry) => (
                 <li
                   key={entry.id}
                   className="rounded-md border border-gray-100 bg-gray-50 px-3 py-2 text-sm text-gray-700"

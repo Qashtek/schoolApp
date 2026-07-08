@@ -18,15 +18,18 @@ export default function NewClassPage() {
     setError('');
 
     try {
+      const requestBody = {
+        name: formData.name.trim(),
+        grade: 'Default', // TODO: Add grade selection
+        ...(formData.description.trim() ? { description: formData.description.trim() } : {}),
+      };
+
       const response = await fetch('/api/classes', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          ...formData,
-          grade: 'Default', // TODO: Add grade selection
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
@@ -35,6 +38,7 @@ export default function NewClassPage() {
       }
 
       router.push('/dashboard/admin/classes');
+      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {

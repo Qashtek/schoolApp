@@ -80,7 +80,7 @@ export default async function AdminSubjectsPage({
             },
           },
         },
-        teachers: {
+        classSubjects: {
           include: {
             teacher: {
               include: {
@@ -183,10 +183,9 @@ export default async function AdminSubjectsPage({
                         : 'None'}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700">
-                      {subject.teachers.length > 0
-                        ? subject.teachers
-                            .map((item) => item.teacher.user.name || item.teacher.user.email)
-                            .join(', ')
+                      {subject.classSubjects.length > 0
+                        ? [...new Set(subject.classSubjects
+                            .map((item) => item.teacher.user.name || item.teacher.user.email))].join(', ')
                         : 'None'}
                     </td>
                     <td className="px-6 py-4 text-sm">

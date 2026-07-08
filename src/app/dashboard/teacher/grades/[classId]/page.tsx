@@ -1,7 +1,8 @@
 import { getServerSession } from 'next-auth';
 import { redirect } from 'next/navigation';
-import { authOptions } from '@/lib/auth';
+import { authOptions, Role } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { TeacherService } from '@/lib/services/teacher.service';
 import GradeForm from './grade-form';
 
 export const dynamic = 'force-dynamic';
@@ -13,6 +14,7 @@ type PageProps = {
   searchParams?: {
     success?: string;
     error?: string;
+    subjectId?: string;
   };
 };
 
@@ -37,6 +39,15 @@ export default async function TeacherGradeEntryPage({ params, searchParams }: Pa
 
   const classId = params.classId;
   const schoolId = session.user.schoolId;
+  const selectedSubjectId = searchParams?.subjectId?.trim();
+
+  const user = {
+    id: session.user.id,
+    role: session.user.role as Role,
+    email: session.user.email,
+  };
+
+  const teacherService = new TeacherService(user);
 
   const teacher = await prisma.teacher.findFirst({
     where: {
@@ -54,28 +65,70 @@ export default async function TeacherGradeEntryPage({ params, searchParams }: Pa
     );
   }
 
-  const classRecord = await prisma.class.findFirst({
-    where: {
-      id: classId,
-      schoolId,
-      teachers: {
-        some: {
-          teacherId: teacher.id,
-        },
-      },
-    },
-    select: {
-      id: true,
-      name: true,
-      grade: true,
-    },
-  });
+  // Fetch teacher's assignments and check access to this class
+  const teacherAssignments = await teacherService.getTeacherAssignments(teacher.id);
+  const classAssignments = teacherAssignments.filter((a) => a.class.id === classId);
 
-  if (!classRecord) {
-    redirect('/dashboard/teacher');
+  if (classAssignments.length === 0) {
+    redirect(`/dashboard/teacher?error=${encodeURIComponent('You are not assigned to this class')}`);
   }
 
-  const [activeTerm, students, classSubjects] = await prisma.$transaction([
+  // Determine the teacher's role for this class
+  const isClassTeacher = classAssignments.some((a) => a.assignmentType === 'CLASS_TEACHER');
+
+  let subjects: { id: string; name: string; code: string }[];
+
+  if (isClassTeacher) {
+    // CLASS_TEACHER: fetch ALL subjects assigned to this class
+    const classSubjects = await prisma.classSubject.findMany({
+      where: {
+        classId,
+        ...(selectedSubjectId ? { subjectId: selectedSubjectId } : {}),
+      },
+      select: {
+        subject: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
+      },
+    });
+    subjects = classSubjects.map((entry) => entry.subject);
+  } else {
+    // SUBJECT_TEACHER: only subjects from their assignments for this class
+    const subjectIds = classAssignments
+      .filter((a) => a.subject)
+      .map((a) => a.subject!.id);
+
+    const classSubjects = await prisma.classSubject.findMany({
+      where: {
+        classId,
+        subjectId: {
+          in: selectedSubjectId
+            ? subjectIds.filter((id) => id === selectedSubjectId)
+            : subjectIds,
+        },
+      },
+      select: {
+        subject: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
+      },
+    });
+    subjects = classSubjects.map((entry) => entry.subject);
+  }
+
+  subjects.sort((a, b) => a.name.localeCompare(b.name));
+  const subjectIds = subjects.map((subject) => subject.id);
+
+  // Fetch active term and students first
+  const [activeTerm, students] = await prisma.$transaction([
     prisma.term.findFirst({
       where: {
         isActive: true,
@@ -106,40 +159,18 @@ export default async function TeacherGradeEntryPage({ params, searchParams }: Pa
       },
       orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
     }),
-    prisma.classSubject.findMany({
-      where: {
-        classId,
-        subject: {
-          schoolId,
-          teachers: {
-            some: {
-              teacherId: teacher.id,
-            },
-          },
-        },
-      },
-      select: {
-        subject: {
-          select: {
-            id: true,
-            name: true,
-            code: true,
-          },
-        },
-      },
-    }),
   ]);
 
-  const subjects = classSubjects
-    .map((entry) => entry.subject)
-    .sort((a, b) => a.name.localeCompare(b.name));
-
-  const existingGrades = activeTerm
+  // Fetch existing grades only if there's an active term and subjects
+  const existingGrades = activeTerm && subjectIds.length > 0
     ? await prisma.grade.findMany({
         where: {
           schoolId,
           classId,
           termId: activeTerm.id,
+          subjectId: {
+            in: subjectIds,
+          },
         },
         select: {
           studentId: true,
@@ -157,7 +188,7 @@ export default async function TeacherGradeEntryPage({ params, searchParams }: Pa
       <div>
         <h1 className="text-2xl font-semibold text-gray-900">Grade Entry</h1>
         <p className="mt-1 text-sm text-gray-600">
-          {classRecord.name} (Grade {classRecord.grade})
+          {classAssignments[0].class.name} (Grade {classAssignments[0].class.grade})
         </p>
       </div>
 

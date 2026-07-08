@@ -34,11 +34,41 @@ export default async function TeacherStudentsPage({ searchParams }: PageProps) {
   const endOfDay = new Date(startOfDay);
   endOfDay.setDate(endOfDay.getDate() + 1);
 
-  const assignedClasses = await prisma.teacherClass.findMany({
+  const teacher = await prisma.teacher.findFirst({
     where: {
-      teacher: {
-        userId: session.user.id,
-      },
+      userId: session.user.id,
+      deletedAt: null,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!teacher) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold">Students</h1>
+        <div className="bg-white shadow rounded-lg">
+          <div className="px-4 py-5 sm:p-6">
+            <p className="text-red-600">Teacher profile not found.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const classTeacherAssignment = await prisma.teacherClassSubject.findFirst({
+    where: {
+      teacherId: teacher.id,
+      assignmentType: 'CLASS_TEACHER',
+    },
+    select: { id: true },
+  });
+  const canTakeAttendance = Boolean(classTeacherAssignment);
+
+  const assignedClassRecords = await prisma.teacherClassSubject.findMany({
+    where: {
+      teacherId: teacher.id,
     },
     include: {
       class: {
@@ -74,6 +104,16 @@ export default async function TeacherStudentsPage({ searchParams }: PageProps) {
     },
   });
 
+  // Deduplicate by classId — a teacher may have both CLASS_TEACHER and SUBJECT_TEACHER for the same class
+  const seenClassIds = new Set<string>();
+  const assignedClasses = assignedClassRecords.filter((record) => {
+    if (seenClassIds.has(record.classId)) {
+      return false;
+    }
+    seenClassIds.add(record.classId);
+    return true;
+  });
+
   const successMessage = searchParams?.success;
   const errorMessage = searchParams?.error;
 
@@ -82,6 +122,14 @@ export default async function TeacherStudentsPage({ searchParams }: PageProps) {
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Students</h1>
       </div>
+
+      {!canTakeAttendance ? (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <p className="text-sm text-blue-700">
+            You are a subject teacher. You can view students in your assigned classes and enter grades, but attendance is handled by class teachers.
+          </p>
+        </div>
+      ) : null}
 
       {successMessage && (
         <div className="bg-green-50 border border-green-200 rounded-lg p-4">
@@ -122,6 +170,32 @@ export default async function TeacherStudentsPage({ searchParams }: PageProps) {
                     {classItem.students.length === 0 ? (
                       <div className="px-4 py-4">
                         <p className="text-sm text-gray-500">No students in this class.</p>
+                      </div>
+                    ) : !canTakeAttendance ? (
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="bg-white">
+                            <tr>
+                              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Student Name</th>
+                              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Attendance Today</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100">
+                            {classItem.students.map((student) => {
+                              const attendanceToday = attendanceByStudentId.get(student.id);
+                              return (
+                                <tr key={student.id}>
+                                  <td className="px-4 py-3 text-sm text-gray-900">
+                                    {student.firstName} {student.lastName}
+                                  </td>
+                                  <td className="px-4 py-3 text-sm text-gray-700">
+                                    {attendanceToday ?? 'Not marked'}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
                       </div>
                     ) : (
                       <form method="post" action="/api/attendance?returnTo=/dashboard/teacher/students">

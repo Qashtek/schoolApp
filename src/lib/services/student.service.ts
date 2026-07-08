@@ -13,6 +13,7 @@ export interface CreateStudentInput {
   firstName: string;
   lastName: string;
   admissionNumber: string;
+  email?: string;
   schoolId: string;
   grade?: string;
   classId?: string;
@@ -51,7 +52,7 @@ export class StudentService {
     const existingStudent = data.userId
       ? await prisma.student.findUnique({
           where: { userId: data.userId },
-          include: { deletedAt: false },
+          select: { id: true },
         })
       : null;
 
@@ -76,11 +77,11 @@ export class StudentService {
       let resolvedUserId = data.userId;
 
       if (!resolvedUserId) {
-        const generatedEmail = `student-${data.admissionNumber}-${Date.now()}@local.school`;
+        const emailToUse = data.email || `student-${data.admissionNumber}-${Date.now()}@local.school`;
         const createdUser = await tx.user.create({
           data: {
             name: `${data.firstName} ${data.lastName}`.trim(),
-            email: generatedEmail,
+            email: emailToUse,
             role: 'STUDENT',
           },
         });
@@ -127,6 +128,13 @@ export class StudentService {
             id: true,
             name: true,
             email: true,
+          },
+        },
+        class: {
+          select: {
+            id: true,
+            name: true,
+            grade: true,
           },
         },
         attendances: true,
@@ -312,17 +320,28 @@ export class StudentService {
     const grades = await prisma.grade.findMany({
       where: { studentId, deletedAt: null },
       include: {
-        teacher: {
-          include: {
-            user: {
-              select: {
-                name: true,
-              },
-            },
+        subject: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
+        class: {
+          select: {
+            id: true,
+            name: true,
+            grade: true,
+          },
+        },
+        term: {
+          select: {
+            id: true,
+            name: true,
           },
         },
       },
-      orderBy: { date: 'desc' },
+      orderBy: { createdAt: 'desc' },
     });
 
     return grades;

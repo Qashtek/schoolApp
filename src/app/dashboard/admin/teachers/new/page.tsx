@@ -3,20 +3,12 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Save, User, Mail, Lock, BookOpen } from 'lucide-react';
+import { ArrowLeft, Save, User, Mail, Lock, Plus, X } from 'lucide-react';
 
-interface Class {
+interface ClassOption {
   id: string;
   name: string;
   grade: string;
-  school?: {
-    id: string;
-    name: string;
-  };
-  _count: {
-    teachers: number;
-    students: number;
-  };
 }
 
 interface SubjectOption {
@@ -25,34 +17,28 @@ interface SubjectOption {
   code: string;
 }
 
-interface FormData {
-  name: string;
-  email: string;
-  password: string;
-  subject: string;
-  classIds: string[];
+interface SubjectTeachingEntry {
+  classId: string;
+  subjectId: string;
 }
 
 interface FormErrors {
   name?: string;
   email?: string;
   password?: string;
-  subject?: string;
   general?: string;
 }
 
 export default function NewTeacherPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
-  const [classes, setClasses] = useState<Class[]>([]);
+  const [classes, setClasses] = useState<ClassOption[]>([]);
   const [subjects, setSubjects] = useState<SubjectOption[]>([]);
-  const [formData, setFormData] = useState<FormData>({
-    name: '',
-    email: '',
-    password: '',
-    subject: '',
-    classIds: [],
-  });
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [primaryClassId, setPrimaryClassId] = useState('');
+  const [subjectEntries, setSubjectEntries] = useState<SubjectTeachingEntry[]>([]);
   const [errors, setErrors] = useState<FormErrors>({});
 
   const normalizeListResponse = <T,>(payload: unknown): T[] => {
@@ -66,6 +52,24 @@ export default function NewTeacherPage() {
       Array.isArray((payload as { data?: unknown }).data)
     ) {
       return (payload as { data: T[] }).data;
+    }
+
+    // Handle { classes: [...] } shape
+    if (
+      payload &&
+      typeof payload === 'object' &&
+      Array.isArray((payload as { classes?: unknown }).classes)
+    ) {
+      return (payload as { classes: T[] }).classes;
+    }
+
+    // Handle { subjects: [...] } shape
+    if (
+      payload &&
+      typeof payload === 'object' &&
+      Array.isArray((payload as { subjects?: unknown }).subjects)
+    ) {
+      return (payload as { subjects: T[] }).subjects;
     }
 
     return [];
@@ -82,7 +86,7 @@ export default function NewTeacherPage() {
 
         if (classesResponse.ok) {
           const classesData = await classesResponse.json();
-          setClasses(normalizeListResponse<Class>(classesData));
+          setClasses(normalizeListResponse<ClassOption>(classesData));
         }
 
         if (subjectsResponse.ok) {
@@ -100,24 +104,29 @@ export default function NewTeacherPage() {
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
 
-    if (!formData.name.trim()) {
+    if (!name.trim()) {
       newErrors.name = 'Name is required';
     }
 
-    if (!formData.email.trim()) {
+    if (!email.trim()) {
       newErrors.email = 'Email is required';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       newErrors.email = 'Invalid email address';
     }
 
-    if (!formData.password) {
+    if (!password) {
       newErrors.password = 'Password is required';
-    } else if (formData.password.length < 6) {
+    } else if (password.length < 6) {
       newErrors.password = 'Password must be at least 6 characters';
     }
 
-    if (subjects.length > 0 && !formData.subject.trim()) {
-      newErrors.subject = 'Subject is required';
+    // Validate subject teaching entries are complete
+    const incompleteEntries = subjectEntries.some(
+      (entry) => (entry.classId && !entry.subjectId) || (!entry.classId && entry.subjectId)
+    );
+
+    if (incompleteEntries) {
+      newErrors.general = 'Please complete all subject teaching entries or remove incomplete ones';
     }
 
     setErrors(newErrors);
@@ -135,74 +144,47 @@ export default function NewTeacherPage() {
     setErrors({});
 
     try {
-      // First create the user account
-      const userResponse = await fetch('/api/auth/register', {
+      const body: {
+        name: string;
+        email: string;
+        password: string;
+        classTeacher?: { classId: string };
+        subjectTeacher?: { classId: string; subjectId: string }[];
+      } = {
+        name: name.trim(),
+        email: email.trim(),
+        password,
+      };
+
+      if (primaryClassId) {
+        body.classTeacher = { classId: primaryClassId };
+      }
+
+      if (subjectEntries.length > 0) {
+        body.subjectTeacher = subjectEntries
+          .filter((entry) => entry.classId && entry.subjectId)
+          .map((entry) => ({
+            classId: entry.classId,
+            subjectId: entry.subjectId,
+          }));
+      }
+
+      const response = await fetch('/api/teachers', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          name: formData.name,
-          email: formData.email,
-          password: formData.password,
-          role: 'TEACHER',
-        }),
+        body: JSON.stringify(body),
       });
 
-      if (!userResponse.ok) {
-        const errorData = await userResponse.json();
-        throw new Error(errorData.error || 'Failed to create user account');
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Failed to create teacher');
       }
 
-      const userData = await userResponse.json();
-
-      try {
-        // Then create the teacher record
-        const teacherResponse = await fetch('/api/teachers', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            userId: userData.id,
-            subject: formData.subject || undefined,
-          }),
-        });
-
-        if (!teacherResponse.ok) {
-          const errorData = await teacherResponse.json();
-          throw new Error(errorData.error || 'Failed to create teacher record');
-        }
-
-        const teacherData = await teacherResponse.json();
-
-        // Assign classes if any selected
-        if (formData.classIds.length > 0) {
-          const assignResponse = await fetch(`/api/teachers/${teacherData.id}/classes`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              classIds: formData.classIds,
-            }),
-          });
-
-          if (!assignResponse.ok) {
-            const errorData = await assignResponse.json();
-            throw new Error(errorData.error || 'Failed to assign classes');
-          }
-        }
-
-        // Success - redirect to teachers list
-        router.push('/dashboard/admin/teachers');
-      } catch (teacherError) {
-        // Clean up the created user if teacher creation failed
-        await fetch(`/api/teachers?userId=${encodeURIComponent(userData.id)}`, {
-          method: 'DELETE',
-        }).catch(() => {});
-        throw teacherError;
-      }
+      router.push('/dashboard/admin/teachers');
+      router.refresh();
     } catch (error) {
       console.error('Error creating teacher:', error);
       setErrors({
@@ -213,14 +195,21 @@ export default function NewTeacherPage() {
     }
   };
 
-  const handleClassToggle = (classId: string) => {
-    setFormData(prev => ({
-      ...prev,
-      classIds: prev.classIds.includes(classId)
-        ? prev.classIds.filter(id => id !== classId)
-        : [...prev.classIds, classId],
-    }));
+  const addSubjectEntry = () => {
+    setSubjectEntries((prev) => [...prev, { classId: '', subjectId: '' }]);
   };
+
+  const removeSubjectEntry = (index: number) => {
+    setSubjectEntries((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const updateSubjectEntry = (index: number, field: keyof SubjectTeachingEntry, value: string) => {
+    setSubjectEntries((prev) =>
+      prev.map((entry, i) => (i === index ? { ...entry, [field]: value } : entry))
+    );
+  };
+
+  const getAvailableSubjects = () => subjects;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -236,7 +225,9 @@ export default function NewTeacherPage() {
             </button>
             <div>
               <h1 className="text-2xl font-semibold text-gray-900">Add New Teacher</h1>
-              <p className="mt-1 text-sm text-gray-500">Create a new teacher account and assign classes</p>
+              <p className="mt-1 text-sm text-gray-500">
+                Create a new teacher account with optional class assignments
+              </p>
             </div>
           </div>
         </div>
@@ -269,8 +260,8 @@ export default function NewTeacherPage() {
                   <input
                     type="text"
                     id="name"
-                    value={formData.name}
-                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
                     className={`mt-1 block w-full px-3 py-2 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                       errors.name ? 'border-red-300' : 'border-gray-300'
                     }`}
@@ -287,17 +278,17 @@ export default function NewTeacherPage() {
                     Email Address *
                   </label>
                   <div className="mt-1 relative">
+                    <Mail className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
                     <input
                       type="email"
                       id="email"
-                      value={formData.email}
-                      onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
                       className={`block w-full px-3 py-2 pl-10 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                         errors.email ? 'border-red-300' : 'border-gray-300'
                       }`}
                       placeholder="teacher@school.edu"
                     />
-                    <Mail className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
                   </div>
                   {errors.email && (
                     <p className="mt-1 text-sm text-red-600">{errors.email}</p>
@@ -310,101 +301,193 @@ export default function NewTeacherPage() {
                     Password *
                   </label>
                   <div className="mt-1 relative">
+                    <Lock className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
                     <input
                       type="password"
                       id="password"
-                      value={formData.password}
-                      onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
                       className={`block w-full px-3 py-2 pl-10 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                         errors.password ? 'border-red-300' : 'border-gray-300'
                       }`}
                       placeholder="Minimum 6 characters"
                     />
-                    <Lock className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
                   </div>
                   {errors.password && (
                     <p className="mt-1 text-sm text-red-600">{errors.password}</p>
                   )}
                 </div>
-
-                {/* Subject */}
-                <div>
-                  <label htmlFor="subject" className="block text-sm font-medium text-gray-700">
-                    Subject {subjects.length > 0 ? '*' : ''}
-                  </label>
-                  <select
-                    id="subject"
-                    value={formData.subject}
-                    onChange={(e) => setFormData(prev => ({ ...prev, subject: e.target.value }))}
-                    disabled={subjects.length === 0}
-                    className={`mt-1 block w-full px-3 py-2 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      errors.subject ? 'border-red-300' : 'border-gray-300'
-                    }`}
-                  >
-                    <option value="">
-                      {subjects.length === 0 ? 'No subjects created yet' : 'Select a subject'}
-                    </option>
-                    {subjects.map((subject) => (
-                      <option key={subject.id} value={subject.name}>
-                        {subject.name} ({subject.code})
-                      </option>
-                    ))}
-                  </select>
-                  {errors.subject && (
-                    <p className="mt-1 text-sm text-red-600">{errors.subject}</p>
-                  )}
-                  {subjects.length === 0 && (
-                    <p className="mt-2 text-sm text-gray-600">
-                      No subjects available.{' '}
-                      <Link
-                        href="/dashboard/admin/subjects/new"
-                        className="font-medium text-blue-600 hover:text-blue-700"
-                      >
-                        Create Subject
-                      </Link>
-                      .
-                    </p>
-                  )}
-                </div>
               </div>
             </div>
 
-            {/* Class Assignments */}
+            {/* Primary Class Assignment */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
-              <h2 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
-                <BookOpen className="w-5 h-5" />
-                Class Assignments
+              <h2 className="text-lg font-medium text-gray-900 mb-4">
+                Class Teacher Assignment <span className="text-sm font-normal text-gray-400">(optional)</span>
               </h2>
 
-              <div className="space-y-3">
-                {classes.length === 0 ? (
-                  <p className="text-sm text-gray-500">No classes available</p>
-                ) : (
-                  classes.map((cls) => (
-                    <label key={cls.id} className="flex items-center space-x-3">
-                      <input
-                        type="checkbox"
-                        checked={formData.classIds.includes(cls.id)}
-                        onChange={() => handleClassToggle(cls.id)}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                      />
-                      <div className="flex-1">
-                        <span className="text-sm font-medium text-gray-900">
-                          {cls.name} - Grade {cls.grade}
-                        </span>
-                        {cls.school && (
-                          <span className="text-xs text-gray-500 ml-2">
-                            ({cls.school.name})
-                          </span>
-                        )}
-                        <div className="text-xs text-gray-500">
-                          {cls._count.teachers} teachers, {cls._count.students} students
-                        </div>
-                      </div>
-                    </label>
-                  ))
+              <div>
+                <label htmlFor="primaryClass" className="block text-sm font-medium text-gray-700">
+                  Primary Class
+                </label>
+                <select
+                  id="primaryClass"
+                  value={primaryClassId}
+                  onChange={(e) => setPrimaryClassId(e.target.value)}
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">No class teacher assignment</option>
+                  {classes.map((cls) => (
+                    <option key={cls.id} value={cls.id}>
+                      {cls.name} - Grade {cls.grade}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-2 text-sm text-gray-500">
+                  This teacher will be responsible for attendance in this class.
+                </p>
+                {classes.length === 0 && (
+                  <p className="mt-2 text-sm text-gray-600">
+                    No classes available.{' '}
+                    <Link
+                      href="/dashboard/admin/classes/new"
+                      className="font-medium text-blue-600 hover:text-blue-700"
+                    >
+                      Create Class
+                    </Link>
+                    .
+                  </p>
                 )}
               </div>
+            </div>
+
+            {/* Subject Teaching Assignments */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-medium text-gray-900">
+                  Subject Teaching Assignments{' '}
+                  <span className="text-sm font-normal text-gray-400">(optional)</span>
+                </h2>
+                <button
+                  type="button"
+                  onClick={addSubjectEntry}
+                  disabled={classes.length === 0 || subjects.length === 0}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Entry
+                </button>
+              </div>
+
+              {subjectEntries.length === 0 ? (
+                <div className="rounded-lg border-2 border-dashed border-gray-200 p-6 text-center">
+                  <p className="text-sm text-gray-500">
+                    No subject teaching assignments yet. Click &quot;Add Entry&quot; to add one.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {subjectEntries.map((entry, index) => (
+                    <div
+                      key={index}
+                      className="rounded-lg border border-gray-100 bg-gray-50 p-4"
+                    >
+                      <div className="flex items-start justify-between gap-4 mb-3">
+                        <h3 className="text-sm font-medium text-gray-700">
+                          Assignment #{index + 1}
+                        </h3>
+                        <button
+                          type="button"
+                          onClick={() => removeSubjectEntry(index)}
+                          className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                          title="Remove assignment"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {/* Class dropdown */}
+                        <div>
+                          <label
+                            htmlFor={`subject-class-${index}`}
+                            className="block text-xs font-medium text-gray-600 mb-1"
+                          >
+                            Class
+                          </label>
+                          <select
+                            id={`subject-class-${index}`}
+                            value={entry.classId}
+                            onChange={(e) => updateSubjectEntry(index, 'classId', e.target.value)}
+                            className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          >
+                            <option value="">Select class</option>
+                            {classes.map((cls) => (
+                              <option key={cls.id} value={cls.id}>
+                                {cls.name} - Grade {cls.grade}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {/* Subject dropdown */}
+                        <div>
+                          <label
+                            htmlFor={`subject-subject-${index}`}
+                            className="block text-xs font-medium text-gray-600 mb-1"
+                          >
+                            Subject
+                          </label>
+                          <select
+                            id={`subject-subject-${index}`}
+                            value={entry.subjectId}
+                            onChange={(e) => updateSubjectEntry(index, 'subjectId', e.target.value)}
+                            disabled={!entry.classId}
+                            className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+                          >
+                            <option value="">
+                              {!entry.classId
+                                ? 'Select a class first'
+                                : 'Select subject'}
+                            </option>
+                            {getAvailableSubjects().map((subject) => (
+                              <option key={subject.id} value={subject.id}>
+                                {subject.name} ({subject.code})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {classes.length === 0 && (
+                <p className="mt-3 text-sm text-gray-600">
+                  No classes available.{' '}
+                  <Link
+                    href="/dashboard/admin/classes/new"
+                    className="font-medium text-blue-600 hover:text-blue-700"
+                  >
+                    Create Class
+                  </Link>
+                  .
+                </p>
+              )}
+
+              {classes.length > 0 && subjects.length === 0 && (
+                <p className="mt-3 text-sm text-gray-600">
+                  No subjects available.{' '}
+                  <Link
+                    href="/dashboard/admin/subjects/new"
+                    className="font-medium text-blue-600 hover:text-blue-700"
+                  >
+                    Create Subject
+                  </Link>
+                  .
+                </p>
+              )}
             </div>
 
             {/* Submit Button */}

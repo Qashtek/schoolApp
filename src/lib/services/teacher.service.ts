@@ -1,24 +1,12 @@
-
 import { prisma } from '@/lib/prisma';
 import { hash } from 'bcryptjs';
-import { isAdmin } from '@/lib/permissions';
-import { Role } from '@/lib/auth';
-
-export interface AuthenticatedUser {
-  id: string;
-  role: Role;
-  email?: string;
-}
+import { AuthenticatedUser, isAdmin } from '@/lib/permissions';
 
 export interface CreateTeacherInput {
   userId: string;
   schoolId?: string;
   subject?: string;
-}
-
-export interface AssignClassesInput {
-  teacherId: string;
-  classIds: string[];
+  type?: 'CLASS_TEACHER' | 'SUBJECT_TEACHER';
 }
 
 export interface UpdateTeacherInput {
@@ -35,11 +23,10 @@ export class TeacherService {
   }
 
   /**
-   * Check if the current user has permission to perform the action
-   * Golden rule: If role !== ADMIN → throw immediately
+   * Check if the current user has permission to perform administrative actions
    */
   private requireAdmin(): void {
-    if (this.user.role !== 'ADMIN' && this.user.role !== 'SUPER_ADMIN') {
+    if (!isAdmin(this.user)) {
       throw new Error('Unauthorized: Only administrators can perform this action');
     }
   }
@@ -89,6 +76,7 @@ export class TeacherService {
         userId: data.userId,
         schoolId: data.schoolId,
         subject: data.subject,
+        type: data.type || 'CLASS_TEACHER',
       },
       include: {
         user: {
@@ -106,7 +94,7 @@ export class TeacherService {
   }
 
   /**
-   * Get a teacher by ID with assigned classes
+   * Get a teacher by ID with assigned class/subject records
    */
   async getTeacherById(id: string) {
     const teacher = await prisma.teacher.findFirst({
@@ -120,12 +108,12 @@ export class TeacherService {
           },
         },
         school: true,
-        classes: {
+        classSubjects: {
           include: {
             class: true,
+            subject: true,
           },
         },
-        grades: true,
       },
     });
 
@@ -147,8 +135,8 @@ export class TeacherService {
     take?: number;
   }) {
     // Non-admin users can only see active teachers
-    const isActiveFilter = isAdmin(this.user.role)
-      ? options?.isActive 
+    const isActiveFilter = isAdmin(this.user)
+      ? options?.isActive
       : true;
 
     const where = {
@@ -171,9 +159,10 @@ export class TeacherService {
             },
           },
           school: true,
-          classes: {
+          classSubjects: {
             include: {
               class: true,
+              subject: true,
             },
           },
         },
@@ -183,131 +172,6 @@ export class TeacherService {
     ]);
 
     return { teachers, count };
-  }
-
-  /**
-   * Assign classes to a teacher
-   * Replaces existing class assignments
-   * Only ADMIN can assign classes
-   */
-  async assignClassesToTeacher(data: AssignClassesInput) {
-    this.requireAdmin();
-
-    // Verify teacher exists
-    const teacher = await prisma.teacher.findFirst({
-      where: { id: data.teacherId, deletedAt: null },
-    });
-
-    if (!teacher) {
-      throw new Error('Teacher not found');
-    }
-
-    // Verify all classes exist
-    const classes = await prisma.class.findMany({
-      where: {
-        id: { in: data.classIds },
-        deletedAt: null,
-      },
-    });
-
-    if (classes.length !== data.classIds.length) {
-      const foundIds = classes.map(c => c.id);
-      const missingIds = data.classIds.filter(id => !foundIds.includes(id));
-      throw new Error(`Classes not found: ${missingIds.join(', ')}`);
-    }
-
-    // Delete existing class assignments
-    await prisma.teacherClass.deleteMany({
-      where: { teacherId: data.teacherId },
-    });
-
-    // Create new class assignments
-    await prisma.teacherClass.createMany({
-      data: data.classIds.map(classId => ({
-        teacherId: data.teacherId,
-        classId,
-      })),
-    });
-
-    // Return updated teacher with classes
-    return this.getTeacherById(data.teacherId);
-  }
-
-  /**
-   * Add a single class to a teacher (doesn't remove existing)
-   */
-  async addClassToTeacher(teacherId: string, classId: string) {
-    this.requireAdmin();
-
-    // Verify teacher exists
-    const teacher = await prisma.teacher.findUnique({
-      where: { id: teacherId },
-    });
-
-    if (!teacher) {
-      throw new Error('Teacher not found');
-    }
-
-    // Verify class exists
-    const classRecord = await prisma.class.findFirst({
-      where: { id: classId, deletedAt: null },
-    });
-
-    if (!classRecord) {
-      throw new Error('Class not found');
-    }
-
-    // Check if assignment already exists
-    const existing = await prisma.teacherClass.findUnique({
-      where: {
-        teacherId_classId: {
-          teacherId,
-          classId,
-        },
-      },
-    });
-
-    if (existing) {
-      throw new Error('Teacher is already assigned to this class');
-    }
-
-    // Create assignment
-    await prisma.teacherClass.create({
-      data: {
-        teacherId,
-        classId,
-      },
-    });
-
-    return this.getTeacherById(teacherId);
-  }
-
-  /**
-   * Remove a class from a teacher
-   */
-  async removeClassFromTeacher(teacherId: string, classId: string) {
-    this.requireAdmin();
-
-    // Verify teacher exists
-    const teacher = await prisma.teacher.findFirst({
-      where: { id: teacherId, deletedAt: null },
-    });
-
-    if (!teacher) {
-      throw new Error('Teacher not found');
-    }
-
-    // Delete the assignment
-    await prisma.teacherClass.delete({
-      where: {
-        teacherId_classId: {
-          teacherId,
-          classId,
-        },
-      },
-    });
-
-    return this.getTeacherById(teacherId);
   }
 
   /**
@@ -352,9 +216,10 @@ export class TeacherService {
           },
         },
         school: true,
-        classes: {
+        classSubjects: {
           include: {
             class: true,
+            subject: true,
           },
         },
       },
@@ -447,7 +312,7 @@ export class TeacherService {
           },
         },
         school: true,
-        classes: {
+        classSubjects: {
           include: {
             class: {
               include: {
@@ -459,6 +324,7 @@ export class TeacherService {
                 },
               },
             },
+            subject: true,
           },
         },
       },
@@ -472,17 +338,355 @@ export class TeacherService {
   }
 
   /**
-   * Get classes assigned to a teacher
+   * Assign a teacher as CLASS_TEACHER of a class
+   * Enforces that a class can only have one CLASS_TEACHER at a time
+   * Enforces that a teacher can only be CLASS_TEACHER of one class at a time
    */
-  async getTeacherClasses(teacherId: string) {
-    const assignments = await prisma.teacherClass.findMany({
-      where: { teacherId, teacher: { deletedAt: null } },
+  async assignClassTeacher(teacherId: string, classId: string) {
+    this.requireAdmin();
+
+    // Verify teacher exists
+    const teacher = await prisma.teacher.findFirst({
+      where: { id: teacherId, deletedAt: null },
+    });
+
+    if (!teacher) {
+      throw new Error('Teacher not found');
+    }
+
+    // Verify class exists
+    const classRecord = await prisma.class.findFirst({
+      where: { id: classId, deletedAt: null },
+    });
+
+    if (!classRecord) {
+      throw new Error('Class not found');
+    }
+
+    // Check that the class doesn't already have a CLASS_TEACHER
+    const existingClassTeacher = await prisma.teacherClassSubject.findFirst({
+      where: {
+        classId,
+        assignmentType: 'CLASS_TEACHER',
+      },
+      include: {
+        teacher: {
+          include: {
+            user: {
+              select: {
+                name: true,
+                email: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (existingClassTeacher) {
+      throw new Error(
+        `This class already has a class teacher (${existingClassTeacher.teacher.user.name}). Remove that assignment first.`
+      );
+    }
+
+    // Check that the teacher isn't already CLASS_TEACHER of another class
+    const existingTeacherAssignment = await prisma.teacherClassSubject.findFirst({
+      where: {
+        teacherId,
+        assignmentType: 'CLASS_TEACHER',
+        classId: { not: classId },
+      },
       include: {
         class: true,
       },
     });
 
-    return assignments.map(a => a.class);
+    if (existingTeacherAssignment) {
+      throw new Error(
+        `This teacher is already the class teacher of "${existingTeacherAssignment.class.name}". Remove that assignment first.`
+      );
+    }
+
+    // Create the CLASS_TEACHER assignment
+    const assignment = await prisma.teacherClassSubject.create({
+      data: {
+        teacherId,
+        classId,
+        assignmentType: 'CLASS_TEACHER',
+        subjectId: null,
+      },
+      include: {
+        class: true,
+        teacher: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return assignment;
+  }
+
+  /**
+   * Assign a teacher as SUBJECT_TEACHER for a specific subject in a class
+   * Prevents duplicate teacherId + classId + subjectId combinations
+   */
+  async assignSubjectTeacher(teacherId: string, classId: string, subjectId: string) {
+    this.requireAdmin();
+
+    // Verify teacher exists
+    const teacher = await prisma.teacher.findFirst({
+      where: { id: teacherId, deletedAt: null },
+    });
+
+    if (!teacher) {
+      throw new Error('Teacher not found');
+    }
+
+    // Verify class exists
+    const classRecord = await prisma.class.findFirst({
+      where: { id: classId, deletedAt: null },
+    });
+
+    if (!classRecord) {
+      throw new Error('Class not found');
+    }
+
+    // Verify subject exists
+    const subject = await prisma.subject.findFirst({
+      where: { id: subjectId, deletedAt: null },
+    });
+
+    if (!subject) {
+      throw new Error('Subject not found');
+    }
+
+    // Check for duplicate assignment (teacher + class + subject combination)
+    const existingAssignment = await prisma.teacherClassSubject.findUnique({
+      where: {
+        teacherId_classId_subjectId: {
+          teacherId,
+          classId,
+          subjectId,
+        },
+      },
+    });
+
+    if (existingAssignment) {
+      throw new Error('This teacher is already assigned to teach this subject in this class');
+    }
+
+    // Create the SUBJECT_TEACHER assignment
+    const assignment = await prisma.teacherClassSubject.create({
+      data: {
+        teacherId,
+        classId,
+        subjectId,
+        assignmentType: 'SUBJECT_TEACHER',
+      },
+      include: {
+        class: true,
+        subject: true,
+        teacher: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return assignment;
+  }
+
+  /**
+   * Remove a teacher assignment by its ID
+   * Hard deletes the TeacherClassSubject record
+   */
+  async removeAssignment(assignmentId: string) {
+    this.requireAdmin();
+
+    // Verify the assignment exists
+    const assignment = await prisma.teacherClassSubject.findUnique({
+      where: { id: assignmentId },
+      include: {
+        class: { select: { name: true } },
+        subject: { select: { name: true } },
+      },
+    });
+
+    if (!assignment) {
+      throw new Error('Assignment not found');
+    }
+
+    await prisma.teacherClassSubject.delete({
+      where: { id: assignmentId },
+    });
+
+    return {
+      success: true,
+      message: assignment.subject
+        ? `Removed subject teacher assignment for "${assignment.subject.name}" in "${assignment.class.name}"`
+        : `Removed class teacher assignment for "${assignment.class.name}"`,
+    };
+  }
+
+  /**
+   * Get all TeacherClassSubject assignments for a teacher
+   * Includes class name, subject name, and assignmentType
+   */
+  async getTeacherAssignments(teacherId: string) {
+    const teacher = await prisma.teacher.findFirst({
+      where: { id: teacherId, deletedAt: null },
+    });
+
+    if (!teacher) {
+      throw new Error('Teacher not found');
+    }
+
+    const assignments = await prisma.teacherClassSubject.findMany({
+      where: { teacherId },
+      include: {
+        class: {
+          select: {
+            id: true,
+            name: true,
+            grade: true,
+          },
+        },
+        subject: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return assignments;
+  }
+
+  /**
+   * Check whether a teacher is the class teacher of a specific class
+   */
+  async isClassTeacherOf(teacherId: string, classId: string): Promise<boolean> {
+    const assignment = await prisma.teacherClassSubject.findFirst({
+      where: {
+        teacherId,
+        classId,
+        assignmentType: 'CLASS_TEACHER',
+      },
+      select: { id: true },
+    });
+
+    return Boolean(assignment);
+  }
+
+  /**
+   * Check whether a teacher has any assignment (CLASS_TEACHER or SUBJECT_TEACHER) for a class
+   */
+  async isAssignedToClass(teacherId: string, classId: string): Promise<boolean> {
+    const assignment = await prisma.teacherClassSubject.findFirst({
+      where: {
+        teacherId,
+        classId,
+      },
+      select: { id: true },
+    });
+
+    return Boolean(assignment);
+  }
+
+  /**
+   * Get the CLASS_TEACHER assignment for a class, including teacher user details
+   */
+  async getClassTeacher(classId: string) {
+    const classRecord = await prisma.class.findFirst({
+      where: { id: classId, deletedAt: null },
+    });
+
+    if (!classRecord) {
+      throw new Error('Class not found');
+    }
+
+    const assignment = await prisma.teacherClassSubject.findFirst({
+      where: {
+        classId,
+        assignmentType: 'CLASS_TEACHER',
+      },
+      include: {
+        teacher: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return assignment;
+  }
+
+  /**
+   * Get all SUBJECT_TEACHER assignments for a class, including teacher and subject details
+   */
+  async getSubjectTeachers(classId: string) {
+    const classRecord = await prisma.class.findFirst({
+      where: { id: classId, deletedAt: null },
+    });
+
+    if (!classRecord) {
+      throw new Error('Class not found');
+    }
+
+    const assignments = await prisma.teacherClassSubject.findMany({
+      where: {
+        classId,
+        assignmentType: 'SUBJECT_TEACHER',
+      },
+      include: {
+        teacher: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+          },
+        },
+        subject: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return assignments;
   }
 
   /**

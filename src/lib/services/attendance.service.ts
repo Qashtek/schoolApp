@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { AuthenticatedUser } from '@/lib/permissions';
+import { TeacherService } from '@/lib/services/teacher.service';
 
 export interface AttendanceRecord {
   studentId: string;
@@ -66,20 +67,34 @@ export class AttendanceService {
   }
 
   /**
-   * Check if the teacher is assigned to the specified class
+   * Check if the teacher has any assignment to the specified class
    */
   private async requireClassAssignment(teacherId: string, classId: string): Promise<void> {
-    const assignment = await prisma.teacherClass.findUnique({
+    const assignment = await prisma.teacherClassSubject.findFirst({
       where: {
-        teacherId_classId: {
-          teacherId,
-          classId,
-        },
+        teacherId,
+        classId,
       },
+      select: { id: true },
     });
 
     if (!assignment) {
       throw new Error('Unauthorized: Teacher is not assigned to this class');
+    }
+  }
+
+  private async requireClassTeacherAssignment(teacherId: string, classId: string): Promise<void> {
+    const teacherService = new TeacherService(this.user);
+    const isAssignedToClass = await teacherService.isAssignedToClass(teacherId, classId);
+
+    if (!isAssignedToClass) {
+      throw new Error('You are not assigned to this class');
+    }
+
+    const isClassTeacher = await teacherService.isClassTeacherOf(teacherId, classId);
+
+    if (!isClassTeacher) {
+      throw new Error('Only the class teacher can mark attendance for this class');
     }
   }
 
@@ -104,8 +119,8 @@ export class AttendanceService {
       throw new Error('Teacher record not found');
     }
 
-    // Verify teacher is assigned to the class
-    await this.requireClassAssignment(teacher.id, data.classId);
+    // Verify teacher is the class teacher for the class
+    await this.requireClassTeacherAssignment(teacher.id, data.classId);
 
     // Verify class exists
     const classRecord = await prisma.class.findUnique({
@@ -294,8 +309,8 @@ export class AttendanceService {
       throw new Error('Teacher is not assigned to a school');
     }
 
-    // Verify teacher is assigned to the class
-    await this.requireClassAssignment(teacher.id, data.classId);
+    // Verify teacher is the class teacher for this class
+    await this.requireClassTeacherAssignment(teacher.id, data.classId);
 
     // Verify class exists
     const classRecord = await prisma.class.findUnique({

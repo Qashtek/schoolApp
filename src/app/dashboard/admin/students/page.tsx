@@ -186,8 +186,14 @@ export default async function AdminStudentsPage({
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                         {student.createdAt.toDateString()}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                        <form action={deleteStudentAction}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 space-x-2">
+                        <Link
+                          href={`/dashboard/admin/students/${student.id}`}
+                          className="inline-flex items-center rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
+                        >
+                          Edit
+                        </Link>
+                        <form action={deleteStudentAction} className="inline">
                           <input type="hidden" name="studentId" value={student.id} />
                           <ConfirmSubmitButton
                             confirmMessage={`Delete student "${student.firstName} ${student.lastName}"? This action cannot be undone.`}

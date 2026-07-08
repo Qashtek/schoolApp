@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { resolveGradeBandLevel } from '@/lib/grade-bands';
 import type { AuthenticatedUser } from '@/lib/permissions';
+import { TeacherService } from '@/lib/services/teacher.service';
 
 export interface UpsertGradeInput {
   studentId: string;
@@ -149,36 +150,36 @@ export class GradeService {
     return teacher;
   }
 
-  private async requireTeacherClassAndSubjectAssignment(
+  private async requireTeacherGradeAssignment(
     teacherId: string,
     classId: string,
     subjectId: string
   ): Promise<void> {
-    const [classAssignment, subjectAssignment] = await prisma.$transaction([
-      prisma.teacherClass.findUnique({
-        where: {
-          teacherId_classId: {
-            teacherId,
-            classId,
-          },
-        },
-      }),
-      prisma.teacherSubject.findUnique({
-        where: {
-          teacherId_subjectId: {
-            teacherId,
-            subjectId,
-          },
-        },
-      }),
-    ]);
+    const teacherService = new TeacherService(this.user);
+    const isAssignedToClass = await teacherService.isAssignedToClass(teacherId, classId);
 
-    if (!classAssignment) {
+    if (!isAssignedToClass) {
       throw new Error('Unauthorized: Teacher is not assigned to this class');
     }
 
+    const isClassTeacher = await teacherService.isClassTeacherOf(teacherId, classId);
+
+    if (isClassTeacher) {
+      return;
+    }
+
+    const subjectAssignment = await prisma.teacherClassSubject.findUnique({
+      where: {
+        teacherId_classId_subjectId: {
+          teacherId,
+          classId,
+          subjectId,
+        },
+      },
+    });
+
     if (!subjectAssignment) {
-      throw new Error('Unauthorized: Teacher is not assigned to this subject');
+      throw new Error('You are not assigned to teach this subject in this class');
     }
   }
 
@@ -212,7 +213,7 @@ export class GradeService {
 
     const teacher = await this.getTeacherInSchool(schoolId);
 
-    await this.requireTeacherClassAndSubjectAssignment(teacher.id, classId, subjectId);
+    await this.requireTeacherGradeAssignment(teacher.id, classId, subjectId);
 
     const [student, subject, classRecord, term, classSubject] = await prisma.$transaction([
       prisma.student.findFirst({
@@ -383,13 +384,12 @@ export class GradeService {
 
     if (this.user.role === 'TEACHER') {
       const teacher = await this.getTeacherInSchool(schoolId);
-      const classAssignment = await prisma.teacherClass.findUnique({
+      const classAssignment = await prisma.teacherClassSubject.findFirst({
         where: {
-          teacherId_classId: {
-            teacherId: teacher.id,
-            classId: classIdValue,
-          },
+          teacherId: teacher.id,
+          classId: classIdValue,
         },
+        select: { id: true },
       });
 
       if (!classAssignment) {
@@ -475,13 +475,12 @@ export class GradeService {
       }
 
       const teacher = await this.getTeacherInSchool(schoolId);
-      const classAssignment = await prisma.teacherClass.findUnique({
+      const classAssignment = await prisma.teacherClassSubject.findFirst({
         where: {
-          teacherId_classId: {
-            teacherId: teacher.id,
-            classId: student.classId,
-          },
+          teacherId: teacher.id,
+          classId: student.classId,
         },
+        select: { id: true },
       });
 
       if (!classAssignment) {

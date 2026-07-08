@@ -65,7 +65,7 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json(
-      { success: true, message: `Admin password reset to: ${emailPrefix}` },
+      { success: true, message: 'Password has been reset successfully' },
       { status: 200 }
     );
   } catch (error) {

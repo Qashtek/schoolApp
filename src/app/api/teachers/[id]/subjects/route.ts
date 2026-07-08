@@ -76,8 +76,8 @@ export async function DELETE(
       );
     }
 
-    // Delete the teacher-subject assignment
-    await prisma.teacherSubject.deleteMany({
+    // Delete the teacher-subject assignment (removes all class-specific assignments for this subject)
+    await prisma.teacherClassSubject.deleteMany({
       where: {
         teacherId: params.id,
         subjectId: validatedData.subjectId,

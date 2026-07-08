@@ -11,6 +11,7 @@ const createStudentSchema = z.object({
   firstName: z.string().trim().min(1, 'First name is required'),
   lastName: z.string().trim().min(1, 'Last name is required'),
   admissionNumber: z.string().trim().min(1, 'Admission number is required'),
+  email: z.string().trim().email('Invalid email address').optional(),
   grade: z.string().trim().min(1, 'Grade cannot be empty').optional(),
   classId: z.string().trim().min(1, 'Class ID cannot be empty').optional(),
 });

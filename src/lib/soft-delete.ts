@@ -1,4 +1,4 @@
-import prisma from './prisma';
+import { prisma } from './prisma';
 
 /**
  * Soft deletes a record by setting its deletedAt timestamp to now

@@ -208,7 +208,7 @@ export class SubjectService {
           _count: {
             select: {
               classes: true,
-              teachers: true,
+              classSubjects: true,
             },
           },
         },
@@ -263,7 +263,7 @@ export class SubjectService {
         deletedAt: null,
       },
       include: {
-        teachers: {
+        classSubjects: {
           include: {
             teacher: {
               include: {
@@ -374,38 +374,6 @@ export class SubjectService {
       throw new Error('Teacher not found in your school');
     }
 
-    const existingAssignment = await prisma.teacherSubject.findUnique({
-      where: {
-        teacherId_subjectId: {
-          teacherId: data.teacherId,
-          subjectId: data.subjectId,
-        },
-      },
-    });
-
-    if (existingAssignment) {
-      throw new Error('Subject is already assigned to this teacher');
-    }
-
-    return prisma.teacherSubject.create({
-      data: {
-        teacherId: data.teacherId,
-        subjectId: data.subjectId,
-      },
-      include: {
-        subject: true,
-        teacher: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-              },
-            },
-          },
-        },
-      },
-    });
+    throw new Error('assignSubjectToTeacher is deprecated. Use TeacherService.assignSubjectTeacher instead.');
   }
 }

@@ -72,6 +72,7 @@ export default async function AdminStudentReportCardPage({
     },
     select: {
       name: true,
+      address: true,
       logoUrl: true,
     },
   });

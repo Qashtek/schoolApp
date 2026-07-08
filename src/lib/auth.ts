@@ -1,12 +1,9 @@
 import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
-import { compare, hash } from 'bcryptjs';
+import { compare } from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
 
 export type Role = 'ADMIN' | 'SUPER_ADMIN' | 'TEACHER' | 'STUDENT' | 'PARENT';
-const DEMO_ADMIN_EMAIL = 'admin@school.edu';
-const DEMO_ADMIN_PASSWORD = 'admin123';
-const DEMO_SCHOOL_NAME = 'Demo School';
 const VALID_ROLES: Role[] = ['ADMIN', 'SUPER_ADMIN', 'TEACHER', 'STUDENT', 'PARENT'];
 
 function normalizeRole(value: unknown): Role | null {
@@ -105,18 +102,6 @@ export const authOptions: NextAuthOptions = {
           isValidPassword = await compare(credentials.password, user.password);
         } catch {
           isValidPassword = false;
-        }
-
-        // Backward-compatible fallback for legacy plain-text passwords.
-        if (!isValidPassword && credentials.password === user.password) {
-          isValidPassword = true;
-
-          // Upgrade to a bcrypt hash after successful legacy login.
-          const hashedPassword = await hash(credentials.password, 12);
-          await prisma.user.update({
-            where: { id: user.id },
-            data: { password: hashedPassword },
-          });
         }
 
         if (!isValidPassword) {

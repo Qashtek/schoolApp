@@ -4,3 +4,4 @@ node_modules
 prisma/dev.db
 next-env.d.ts
 .codex
+.DS_Store

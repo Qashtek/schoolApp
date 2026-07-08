@@ -119,8 +119,8 @@ export class GradeBandService {
     return bands;
   }
 
-  private async getPersistedBands(level: GradeBandLevel, schoolId: string) {
-    return prisma.gradeBand.findMany({
+  private async getPersistedBands(level: GradeBandLevel, schoolId: string): Promise<GradeBandRecord[]> {
+    const bands = await prisma.gradeBand.findMany({
       where: {
         schoolId,
         level,
@@ -134,6 +134,11 @@ export class GradeBandService {
         level: true,
       },
     });
+
+    return bands.map((band) => ({
+      ...band,
+      level: this.normalizeLevel(band.level),
+    }));
   }
 
   private resolveLetterFromBands(total: number | null, bands: GradeBandInput[]): string | null {

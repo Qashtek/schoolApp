@@ -50,6 +50,13 @@ function buildRedirectUrl(request: Request, key: 'success' | 'error', message: s
   return redirectUrl;
 }
 
+function isClassTeacherAuthorizationError(message: string): boolean {
+  return (
+    message === 'Only the class teacher can mark attendance for this class' ||
+    message === 'You are not assigned to this class'
+  );
+}
+
 /**
  * POST /api/attendance
  * Mark attendance for a class
@@ -197,7 +204,7 @@ export async function POST(request: Request) {
     const message = error instanceof Error ? error.message : 'Internal server error';
     
     // Handle specific errors with appropriate status codes
-    if (message.includes('Unauthorized')) {
+    if (message.includes('Unauthorized') || isClassTeacherAuthorizationError(message)) {
       return NextResponse.json(
         { error: message },
         { status: 403 }

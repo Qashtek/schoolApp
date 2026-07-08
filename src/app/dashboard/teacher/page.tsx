@@ -1,12 +1,16 @@
 import { getServerSession } from 'next-auth';
 import { redirect } from 'next/navigation';
-import { BookOpen, Users, Calendar, User, Lock } from 'lucide-react';
+import { BookOpen, Users, User, Lock, Award, Calendar } from 'lucide-react';
 import { authOptions } from '@/lib/auth';
 import { TeacherService } from '@/lib/services/teacher.service';
 import { Role } from '@/lib/permissions';
 import Link from 'next/link';
 
-export default async function TeacherDashboardPage() {
+export default async function TeacherDashboardPage({
+  searchParams,
+}: {
+  searchParams?: { error?: string; success?: string };
+}) {
   const session = await getServerSession(authOptions);
 
   // Check authentication and teacher role
@@ -45,8 +49,75 @@ export default async function TeacherDashboardPage() {
     );
   }
 
+  // Group assignments by classId to determine per-class role
+  const classHasClassTeacher: Record<string, boolean> = {};
+
+  for (const cs of teacher.classSubjects) {
+    if (cs.assignmentType === 'CLASS_TEACHER') {
+      classHasClassTeacher[cs.classId] = true;
+    }
+  }
+
+  // My Class: classes where teacher is CLASS_TEACHER (deduplicated)
+  const classTeacherClasses: Array<{ classId: string; classData: { name: string; grade: string; _count: { students: number }; school: { name: string } | null } }> = [];
+  for (const cs of teacher.classSubjects) {
+    if (cs.assignmentType === 'CLASS_TEACHER' && !classTeacherClasses.some((c) => c.classId === cs.classId)) {
+      classTeacherClasses.push({ classId: cs.classId, classData: cs.class });
+    }
+  }
+
+  // My Subject Classes: SUBJECT_TEACHER only, excluding classes already shown as CLASS_TEACHER
+  const subjectTeacherDisplay: typeof teacher.classSubjects = [];
+  for (const cs of teacher.classSubjects) {
+    if (cs.assignmentType === 'SUBJECT_TEACHER' && !classHasClassTeacher[cs.classId]) {
+      subjectTeacherDisplay.push(cs);
+    }
+  }
+
+  const canTakeAttendance = classTeacherClasses.length > 0;
+  const hasSubjectAssignments = subjectTeacherDisplay.length > 0;
+  const teacherTypeLabel = [
+    canTakeAttendance ? 'Class Teacher' : null,
+    hasSubjectAssignments ? 'Subject Teacher' : null,
+  ].filter(Boolean).join(' & ') || 'Teacher';
+
+  // Unique classIds across all assignments
+  const uniqueClassIds: string[] = [];
+  for (const cs of teacher.classSubjects) {
+    if (!uniqueClassIds.includes(cs.classId)) {
+      uniqueClassIds.push(cs.classId);
+    }
+  }
+
+  // Total students across all assigned classes (deduplicated by classId)
+  let totalStudents = 0;
+  for (const cid of uniqueClassIds) {
+    const csForClass = teacher.classSubjects.find((cs) => cs.classId === cid);
+    totalStudents += csForClass?.class?._count?.students ?? 0;
+  }
+
+  // Format active since date
+  const activeSince = teacher.createdAt
+    ? new Date(teacher.createdAt).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      })
+    : 'Unknown';
+
   return (
     <div className="p-8">
+      {searchParams?.error && (
+        <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+          <p className="text-sm text-red-700">{searchParams.error}</p>
+        </div>
+      )}
+      {searchParams?.success && (
+        <div className="mb-6 rounded-lg border border-green-200 bg-green-50 px-4 py-3">
+          <p className="text-sm text-green-700">{searchParams.success}</p>
+        </div>
+      )}
+
       {/* Page header */}
       <div className="mb-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -94,6 +165,9 @@ export default async function TeacherDashboardPage() {
               {teacher.user.name}
             </h2>
             <p className="text-sm text-gray-500">{teacher.user.email}</p>
+            <p className="text-sm text-gray-600 mt-1">
+              Type: {teacherTypeLabel}
+            </p>
             {teacher.subject && (
               <p className="text-sm text-gray-600 mt-1">
                 Subject: {teacher.subject}
@@ -109,7 +183,7 @@ export default async function TeacherDashboardPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-blue-50 rounded-lg">
@@ -118,7 +192,7 @@ export default async function TeacherDashboardPage() {
             <div>
               <p className="text-sm text-gray-500">Assigned Classes</p>
               <p className="text-2xl font-semibold text-gray-900">
-                {teacher.classes.length}
+                {uniqueClassIds.length}
               </p>
             </div>
           </div>
@@ -131,7 +205,20 @@ export default async function TeacherDashboardPage() {
             <div>
               <p className="text-sm text-gray-500">Total Students</p>
               <p className="text-2xl font-semibold text-gray-900">
-                {teacher.classes.reduce((acc, tc) => acc + tc.class._count.students, 0)}
+                {totalStudents}
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-indigo-50 rounded-lg">
+              <Award className="w-6 h-6 text-indigo-600" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Teacher Type</p>
+              <p className="text-lg font-semibold text-gray-900">
+                {teacherTypeLabel}
               </p>
             </div>
           </div>
@@ -143,32 +230,24 @@ export default async function TeacherDashboardPage() {
             </div>
             <div>
               <p className="text-sm text-gray-500">Active Since</p>
-              <p className="text-lg font-semibold text-gray-900">
-                {new Date(teacher.createdAt).toLocaleDateString()}
+              <p className="text-sm font-semibold text-gray-900">
+                {activeSince}
               </p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Assigned Classes */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-100">
-        <div className="px-6 py-4 border-b border-gray-100">
-          <h3 className="text-lg font-medium text-gray-900">My Classes</h3>
-          <p className="text-sm text-gray-500">Classes you are assigned to teach</p>
-        </div>
-
-        {teacher.classes.length === 0 ? (
-          <div className="p-12 text-center">
-            <BookOpen className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              No classes assigned
-            </h3>
+      {/* My Class Section — CLASS_TEACHER */}
+      {classTeacherClasses.length > 0 && (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-100 mb-8">
+          <div className="px-6 py-4 border-b border-gray-100">
+            <h3 className="text-lg font-medium text-gray-900">My Class</h3>
             <p className="text-sm text-gray-500">
-              You haven't been assigned to any classes yet.
+              Class you manage for attendance and grading
             </p>
           </div>
-        ) : (
+
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-100">
@@ -191,34 +270,112 @@ export default async function TeacherDashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {teacher.classes.map((tc) => (
-                  <tr key={tc.class.id} className="hover:bg-gray-50">
+                {classTeacherClasses.map(({ classId, classData }) => (
+                  <tr key={classId} className="hover:bg-gray-50">
                     <td className="px-6 py-4">
                       <span className="text-sm font-medium text-gray-900">
-                        {tc.class.name}
+                        {classData.name}
                       </span>
                     </td>
                     <td className="px-6 py-4">
                       <span className="text-sm text-gray-900">
-                        Grade {tc.class.grade}
+                        Grade {classData.grade}
                       </span>
                     </td>
                     <td className="px-6 py-4">
                       <span className="text-sm text-gray-900">
-                        {tc.class._count.students} students
+                        {classData._count.students} students
                       </span>
                     </td>
                     <td className="px-6 py-4">
                       <span className="text-sm text-gray-500">
-                        {tc.class.school?.name || 'Not assigned'}
+                        {classData.school?.name || 'Not assigned'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex flex-wrap gap-3">
+                        <Link
+                          href={`/dashboard/teacher/attendance/${classId}`}
+                          className="inline-flex items-center rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 transition-colors"
+                        >
+                          Take Attendance
+                        </Link>
+                        <Link
+                          href={`/dashboard/teacher/grades/${classId}`}
+                          className="inline-flex items-center rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 transition-colors"
+                        >
+                          Grade Students
+                        </Link>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* My Subject Classes Section — SUBJECT_TEACHER */}
+      {subjectTeacherDisplay.length > 0 && (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-100">
+          <div className="px-6 py-4 border-b border-gray-100">
+            <h3 className="text-lg font-medium text-gray-900">My Subject Classes</h3>
+            <p className="text-sm text-gray-500">
+              Classes you teach by assigned subject
+            </p>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-100">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Class Name
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Subject
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Grade
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Students
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {subjectTeacherDisplay.map((cs) => (
+                  <tr key={cs.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4">
+                      <span className="text-sm font-medium text-gray-900">
+                        {cs.class.name}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-200">
+                        {cs.subject?.name ?? 'Unknown'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-sm text-gray-900">
+                        Grade {cs.class.grade}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-sm text-gray-900">
+                        {cs.class._count.students} students
                       </span>
                     </td>
                     <td className="px-6 py-4">
                       <Link
-                        href={`/dashboard/teacher/attendance/${tc.class.id}`}
-                        className="text-sm font-medium text-blue-600 hover:text-blue-800"
+                        href={`/dashboard/teacher/grades/${cs.class.id}`}
+                        className="inline-flex items-center rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 transition-colors"
                       >
-                        Take Attendance
+                        Grade Students
                       </Link>
                     </td>
                   </tr>
@@ -226,8 +383,23 @@ export default async function TeacherDashboardPage() {
               </tbody>
             </table>
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {/* Empty State */}
+      {uniqueClassIds.length === 0 && (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-100">
+          <div className="p-12 text-center">
+            <BookOpen className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              No classes assigned
+            </h3>
+            <p className="text-sm text-gray-500">
+              You haven&apos;t been assigned to any classes yet.
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

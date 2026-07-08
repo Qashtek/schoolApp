@@ -1,0 +1,2 @@
+-- AddColumn
+ALTER TABLE "teachers" ADD COLUMN "type" TEXT NOT NULL DEFAULT 'CLASS_TEACHER';

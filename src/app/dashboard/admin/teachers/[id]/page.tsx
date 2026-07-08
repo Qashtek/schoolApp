@@ -1,10 +1,10 @@
 import { getServerSession } from 'next-auth';
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, BookOpen, Mail, User } from 'lucide-react';
+import { ArrowLeft, Mail, User } from 'lucide-react';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { ManageSubjectsForm } from './assignment-forms';
+import { AssignmentManager } from './assignment-forms';
 
 export default async function TeacherDetailPage({
   params,
@@ -13,7 +13,6 @@ export default async function TeacherDetailPage({
 }) {
   const session = await getServerSession(authOptions);
 
-  // Check authentication and admin role
   if (!session?.user) {
     redirect('/login');
   }
@@ -29,7 +28,7 @@ export default async function TeacherDetailPage({
   const teacherId = params.id;
   const schoolId = session.user.schoolId;
 
-  // Fetch teacher details with subjects and classes
+  // Fetch teacher with user details and all current assignments
   const teacher = await prisma.teacher.findFirst({
     where: {
       id: teacherId,
@@ -44,21 +43,7 @@ export default async function TeacherDetailPage({
           email: true,
         },
       },
-      subjects: {
-        include: {
-          subject: {
-            select: {
-              id: true,
-              name: true,
-              code: true,
-            },
-          },
-        },
-        orderBy: {
-          createdAt: 'desc',
-        },
-      },
-      classes: {
+      classSubjects: {
         include: {
           class: {
             select: {
@@ -67,10 +52,15 @@ export default async function TeacherDetailPage({
               grade: true,
             },
           },
+          subject: {
+            select: {
+              id: true,
+              name: true,
+              code: true,
+            },
+          },
         },
-        orderBy: {
-          createdAt: 'desc',
-        },
+        orderBy: { createdAt: 'desc' },
       },
     },
   });
@@ -79,29 +69,28 @@ export default async function TeacherDetailPage({
     notFound();
   }
 
-  // Fetch all subjects available in the school
-  const allSubjects = await prisma.subject.findMany({
-    where: {
-      schoolId,
-      deletedAt: null,
-    },
-    select: {
-      id: true,
-      name: true,
-      code: true,
-    },
-    orderBy: {
-      name: 'asc',
-    },
-  });
+  // Separate assignments by type
+  const classTeacherAssignment = teacher.classSubjects.find(
+    (cs) => cs.assignmentType === 'CLASS_TEACHER'
+  ) ?? null;
 
-  // Get assigned subject IDs
-  const assignedSubjectIds = new Set(teacher.subjects.map((ts) => ts.subjectId));
-
-  // Filter available subjects (not yet assigned)
-  const availableSubjects = allSubjects.filter(
-    (subject) => !assignedSubjectIds.has(subject.id)
+  const subjectTeacherAssignments = teacher.classSubjects.filter(
+    (cs) => cs.assignmentType === 'SUBJECT_TEACHER'
   );
+
+  // Fetch all classes and subjects for the add forms
+  const [allClasses, allSubjects] = await Promise.all([
+    prisma.class.findMany({
+      where: { schoolId, deletedAt: null },
+      select: { id: true, name: true, grade: true },
+      orderBy: { name: 'asc' },
+    }),
+    prisma.subject.findMany({
+      where: { schoolId, deletedAt: null },
+      select: { id: true, name: true, code: true },
+      orderBy: { name: 'asc' },
+    }),
+  ]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -119,25 +108,23 @@ export default async function TeacherDetailPage({
               <h1 className="text-2xl font-semibold text-gray-900">
                 {teacher.user.name || 'Unnamed Teacher'}
               </h1>
-              <p className="mt-1 text-sm text-gray-500">Manage subject assignments</p>
+              <p className="mt-1 text-sm text-gray-500">Manage class and subject assignments</p>
             </div>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
         {/* Teacher Info Card */}
-        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm mb-8">
+        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Teacher Information</h2>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="flex items-start gap-3">
               <User className="w-5 h-5 text-gray-400 mt-0.5" />
               <div>
                 <p className="text-xs font-medium text-gray-500 uppercase">Name</p>
-                <p className="text-sm text-gray-900">
-                  {teacher.user.name || 'Not set'}
-                </p>
+                <p className="text-sm text-gray-900">{teacher.user.name || 'Not set'}</p>
               </div>
             </div>
             <div className="flex items-start gap-3">
@@ -161,46 +148,39 @@ export default async function TeacherDetailPage({
           </div>
         </div>
 
-        <div className="grid gap-8 lg:grid-cols-3">
-          {/* Main Content - Subject Management */}
-          <div className="lg:col-span-2">
-            <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-              <ManageSubjectsForm
-                teacherId={teacherId}
-                assignedSubjects={teacher.subjects.map((ts) => ({
-                  id: ts.subject.id,
-                  teacherSubjectId: ts.id,
-                  name: ts.subject.name,
-                  code: ts.subject.code,
-                }))}
-                availableSubjects={availableSubjects}
-              />
-            </div>
-          </div>
-
-          {/* Sidebar - Classes */}
-          <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <BookOpen className="w-5 h-5" />
-              Assigned Classes
-            </h2>
-            {teacher.classes.length === 0 ? (
-              <p className="text-sm text-gray-500">No classes assigned yet.</p>
-            ) : (
-              <ul className="space-y-2">
-                {teacher.classes.map((tc) => (
-                  <li
-                    key={tc.id}
-                    className="rounded-md border border-gray-100 bg-gray-50 px-3 py-2 text-sm"
-                  >
-                    <p className="font-medium text-gray-900">{tc.class.name}</p>
-                    <p className="text-xs text-gray-500">Grade: {tc.class.grade}</p>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
+        {/* Assignment Manager Client Component */}
+        <AssignmentManager
+          teacherId={teacherId}
+          classTeacherAssignment={
+            classTeacherAssignment
+              ? {
+                  id: classTeacherAssignment.id,
+                  classId: classTeacherAssignment.classId,
+                  className: classTeacherAssignment.class.name,
+                  classGrade: classTeacherAssignment.class.grade,
+                }
+              : null
+          }
+          subjectTeacherAssignments={subjectTeacherAssignments.map((a) => ({
+            id: a.id,
+            classId: a.classId,
+            className: a.class.name,
+            classGrade: a.class.grade,
+            subjectId: a.subjectId ?? '',
+            subjectName: a.subject?.name ?? '',
+            subjectCode: a.subject?.code ?? '',
+          }))}
+          allClasses={allClasses.map((c) => ({
+            id: c.id,
+            name: c.name,
+            grade: c.grade,
+          }))}
+          allSubjects={allSubjects.map((s) => ({
+            id: s.id,
+            name: s.name,
+            code: s.code,
+          }))}
+        />
       </main>
     </div>
   );

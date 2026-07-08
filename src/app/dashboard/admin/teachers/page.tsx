@@ -2,7 +2,7 @@ import { getServerSession } from 'next-auth';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { Users, Plus, BookOpen, Key } from 'lucide-react';
+import { Users, Plus, BookOpen, Key, Pencil } from 'lucide-react';
 import { authOptions } from '@/lib/auth';
 import { TeacherService } from '@/lib/services/teacher.service';
 import { isAdmin, Role } from '@/lib/permissions';
@@ -289,8 +289,8 @@ export default async function AdminTeachersPage({
                         <div className="flex items-center gap-2">
                           <BookOpen className="w-4 h-4 text-gray-400" />
                           <span className="text-sm text-gray-900">
-                            {teacher.classes.length > 0
-                              ? teacher.classes.map((tc) => tc.class.name).join(', ')
+                            {teacher.classSubjects && teacher.classSubjects.length > 0
+                              ? teacher.classSubjects.map((cs) => cs.class.name).join(', ')
                               : 'No classes'}
                           </span>
                         </div>
@@ -317,8 +317,8 @@ export default async function AdminTeachersPage({
                             href={`/dashboard/admin/teachers/${teacher.id}`}
                             className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
                           >
-                            <BookOpen className="w-3 h-3" />
-                            Subjects
+                            <Pencil className="w-3 h-3" />
+                            Edit
                           </Link>
                           <form action={resetTeacherPasswordAction}>
                             <input type="hidden" name="teacherId" value={teacher.id} />
@@ -417,7 +417,7 @@ export default async function AdminTeachersPage({
               <div>
                 <p className="text-sm text-gray-500">Assigned Classes</p>
                 <p className="text-2xl font-semibold text-gray-900">
-                  {teachers.reduce((acc, t) => acc + t.classes.length, 0)}
+                  {teachers.reduce((acc, t) => acc + (t.classSubjects?.length ?? 0), 0)}
                 </p>
               </div>
             </div>
