@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { getServerSession } from 'next-auth';
 import { redirect } from 'next/navigation';
 import { authOptions } from '@/lib/auth';
@@ -50,28 +49,10 @@ export default async function SuperAdminDashboardPage() {
         </div>
       </div>
 
-      <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-gray-900">Quick Actions</h2>
-        <div className="mt-4 flex flex-wrap gap-3">
-          <Link
-            href="/dashboard/super-admin/schools/new"
-            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-          >
-            Create School
-          </Link>
-          <Link
-            href="/dashboard/super-admin/admins/new"
-            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            Create Admin
-          </Link>
-          <Link
-            href="/dashboard/super-admin/schools"
-            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            View Schools
-          </Link>
-        </div>
+      <div className="rounded-lg border border-blue-200 bg-blue-50 p-6">
+        <p className="text-sm text-blue-800">
+          To manage school operations, log in as a school administrator.
+        </p>
       </div>
     </div>
   );

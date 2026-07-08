@@ -1,13 +1,5 @@
-import type { Role } from '@/lib/auth';
-export type { Role } from '@/lib/auth';
-
-export type AuthenticatedUser = {
-  id: string;
-  email: string;
-  name?: string | null;
-  role: Role;
-  schoolId?: string;
-};
+export type { AuthenticatedUser, Role } from '@/types/authenticated-user';
+import type { AuthenticatedUser, Role } from '@/types/authenticated-user';
 
 type UserOrRole = AuthenticatedUser | Role;
 

@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { resolveGradeBandLevel } from '@/lib/grade-bands';
-import type { AuthenticatedUser } from '@/lib/permissions';
+import { isAdmin } from '@/lib/permissions';
+import type { AuthenticatedUser } from '@/types/authenticated-user';
 import { TeacherService } from '@/lib/services/teacher.service';
 
 export interface UpsertGradeInput {
@@ -34,8 +35,8 @@ export class GradeService {
   }
 
   private requireAdmin(): void {
-    if (this.user.role !== 'ADMIN' && this.user.role !== 'SUPER_ADMIN') {
-      throw new Error('Unauthorized: Only ADMIN users can perform this action');
+    if (!isAdmin(this.user)) {
+      throw new Error('Unauthorized: Only administrators can perform this action');
     }
   }
 

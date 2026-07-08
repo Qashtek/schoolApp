@@ -1,12 +1,7 @@
 import { hash } from 'bcryptjs';
-import { Role } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-
-export interface AuthenticatedUser {
-  id: string;
-  role: Role;
-  email?: string;
-}
+import { isSuperAdmin } from '@/lib/permissions';
+import type { AuthenticatedUser } from '@/types/authenticated-user';
 
 export interface CreateSchoolInput {
   name: string;
@@ -28,7 +23,7 @@ export class SuperAdminService {
   }
 
   private requireSuperAdmin(): void {
-    if (this.user.role !== 'SUPER_ADMIN') {
+    if (!isSuperAdmin(this.user)) {
       throw new Error('Unauthorized: Only SUPER_ADMIN users can perform this action');
     }
   }

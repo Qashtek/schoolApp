@@ -2,6 +2,7 @@ import { getServerSession } from 'next-auth';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { authOptions, type Role } from '@/lib/auth';
+import { isAdmin } from '@/lib/permissions';
 import { GradeBandService } from '@/lib/services/grade-band.service';
 
 const levelSchema = z.enum(['JUNIOR', 'SENIOR']);
@@ -48,9 +49,9 @@ export async function GET(request: Request) {
     }
 
     const normalizedRole = normalizeSessionRole(session.user.role);
-    if (normalizedRole !== 'ADMIN') {
+    if (!isAdmin(normalizedRole as Role)) {
       return NextResponse.json(
-        { error: 'Forbidden: Only ADMIN users can access grade bands' },
+        { error: 'Forbidden: Only administrators can access grade bands' },
         { status: 403 }
       );
     }
@@ -102,9 +103,9 @@ export async function PUT(request: Request) {
     }
 
     const normalizedRole = normalizeSessionRole(session.user.role);
-    if (normalizedRole !== 'ADMIN') {
+    if (!isAdmin(normalizedRole as Role)) {
       return NextResponse.json(
-        { error: 'Forbidden: Only ADMIN users can update grade bands' },
+        { error: 'Forbidden: Only administrators can update grade bands' },
         { status: 403 }
       );
     }

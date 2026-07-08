@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
-import { AuthenticatedUser, isAdmin, isStudent } from '@/lib/permissions';
+import { isAdmin, isStudent } from '@/lib/permissions';
+import type { AuthenticatedUser } from '@/types/authenticated-user';
 
 export interface ReportCardGrade {
   subjectId: string;

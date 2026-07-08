@@ -43,15 +43,25 @@ export default withAuth(
       matchesPrefix(pathname, '/api/classes') ||
       matchesPrefix(pathname, '/api/subjects') ||
       matchesPrefix(pathname, '/api/grades') ||
-      matchesPrefix(pathname, '/api/attendance');
-
-    const isProtectedRoute = isProtectedDashboardRoute || isProtectedApiRoute;
+      matchesPrefix(pathname, '/api/attendance') ||
+      matchesPrefix(pathname, '/api/parents') ||
+      matchesPrefix(pathname, '/api/sessions') ||
+      matchesPrefix(pathname, '/api/grade-bands') ||
+      matchesPrefix(pathname, '/api/report-cards') ||
+      matchesPrefix(pathname, '/api/super-admin');
 
     if (isPublicRoute) {
       return NextResponse.next();
     }
 
-    if (!isAuthenticated && isProtectedRoute) {
+    if (!isAuthenticated && isProtectedApiRoute) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    if (!isAuthenticated && isProtectedDashboardRoute) {
       return NextResponse.redirect(new URL('/login', req.url));
     }
 
@@ -67,7 +77,7 @@ export default withAuth(
         return NextResponse.redirect(new URL(roleDashboard, req.url));
       }
 
-      if (isAdminDashboard && userRole !== 'ADMIN' && userRole !== 'SUPER_ADMIN') {
+      if (isAdminDashboard && userRole !== 'ADMIN') {
         return NextResponse.redirect(new URL(roleDashboard, req.url));
       }
 
@@ -106,6 +116,11 @@ export const config = {
     '/api/subjects/:path*',
     '/api/grades/:path*',
     '/api/attendance/:path*',
+    '/api/parents/:path*',
+    '/api/sessions/:path*',
+    '/api/grade-bands/:path*',
+    '/api/report-cards/:path*',
+    '/api/super-admin/:path*',
     '/login',
     '/api/auth/:path*',
   ],

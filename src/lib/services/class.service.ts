@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
-import { AuthenticatedUser, isAdmin, isSuperAdmin } from '@/lib/permissions';
+import { isAdmin, isSuperAdmin } from '@/lib/permissions';
+import type { AuthenticatedUser } from '@/types/authenticated-user';
 
 export interface CreateClassInput {
   name: string;

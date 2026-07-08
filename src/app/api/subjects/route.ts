@@ -2,6 +2,7 @@ import { getServerSession } from 'next-auth';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { authOptions, Role } from '@/lib/auth';
+import { isAdmin } from '@/lib/permissions';
 import { SubjectService } from '@/lib/services/subject.service';
 
 const createSubjectSchema = z.object({
@@ -51,9 +52,9 @@ export async function GET(request: Request) {
     }
 
     const normalizedRole = String(session.user.role ?? '').toUpperCase();
-    if (normalizedRole !== 'ADMIN') {
+    if (!isAdmin(normalizedRole as Role)) {
       return NextResponse.json(
-        { error: 'Forbidden: Only ADMIN users can access subjects' },
+        { error: 'Forbidden: Only administrators can access subjects' },
         { status: 403 }
       );
     }
@@ -129,9 +130,9 @@ export async function POST(request: Request) {
     }
 
     const normalizedRole = String(session.user.role ?? '').toUpperCase();
-    if (normalizedRole !== 'ADMIN') {
+    if (!isAdmin(normalizedRole as Role)) {
       return NextResponse.json(
-        { error: 'Forbidden: Only ADMIN users can create subjects' },
+        { error: 'Forbidden: Only administrators can create subjects' },
         { status: 403 }
       );
     }

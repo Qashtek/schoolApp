@@ -2,6 +2,7 @@ import { getServerSession } from 'next-auth';
 import type { Session } from 'next-auth';
 import { NextResponse } from 'next/server';
 import { authOptions, Role } from '@/lib/auth';
+import { isAdmin } from '@/lib/permissions';
 import { SessionService } from '@/lib/services/session.service';
 
 function mapServiceErrorToStatus(message: string): number {
@@ -32,10 +33,10 @@ function normalizeAdminSession(session: Session | null) {
   }
 
   const normalizedRole = String(session.user.role ?? '').toUpperCase();
-  if (normalizedRole !== 'ADMIN') {
+  if (!isAdmin(normalizedRole as Role)) {
     return {
       error: NextResponse.json(
-        { error: 'Forbidden: Only ADMIN users can activate terms' },
+        { error: 'Forbidden: Only administrators can activate terms' },
         { status: 403 }
       ),
     };

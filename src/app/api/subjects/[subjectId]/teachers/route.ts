@@ -2,6 +2,7 @@ import { getServerSession } from 'next-auth';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { authOptions, Role } from '@/lib/auth';
+import { isAdmin } from '@/lib/permissions';
 import { SubjectService } from '@/lib/services/subject.service';
 
 const assignSubjectToTeacherSchema = z.object({
@@ -47,9 +48,9 @@ export async function POST(
     }
 
     const normalizedRole = String(session.user.role ?? '').toUpperCase();
-    if (normalizedRole !== 'ADMIN') {
+    if (!isAdmin(normalizedRole as Role)) {
       return NextResponse.json(
-        { error: 'Forbidden: Only ADMIN users can assign subjects to teachers' },
+        { error: 'Forbidden: Only administrators can assign subjects to teachers' },
         { status: 403 }
       );
     }

@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { resolveGradeBandLevel, resolveTotalScore } from '@/lib/grade-bands';
-import type { AuthenticatedUser } from '@/lib/permissions';
+import { isAdmin } from '@/lib/permissions';
+import type { AuthenticatedUser } from '@/types/authenticated-user';
 
 export type GradeBandLevel = 'JUNIOR' | 'SENIOR';
 
@@ -44,8 +45,8 @@ export class GradeBandService {
   }
 
   private requireAdmin(): void {
-    if (this.user.role !== 'ADMIN') {
-      throw new Error('Unauthorized: Only ADMIN users can manage grade bands');
+    if (!isAdmin(this.user)) {
+      throw new Error('Unauthorized: Only administrators can manage grade bands');
     }
   }
 

@@ -1,12 +1,6 @@
 import { prisma } from '@/lib/prisma';
-import { Role } from '@/lib/auth';
 import { isAdmin } from '@/lib/permissions';
-
-export interface AuthenticatedUser {
-  id: string;
-  role: Role;
-  email?: string;
-}
+import type { AuthenticatedUser } from '@/types/authenticated-user';
 
 export interface CreateStudentInput {
   userId?: string;

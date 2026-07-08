@@ -3,6 +3,7 @@ import type { Session } from 'next-auth';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { authOptions, Role } from '@/lib/auth';
+import { isAdmin } from '@/lib/permissions';
 import { SessionService } from '@/lib/services/session.service';
 
 const createSessionSchema = z.object({
@@ -41,10 +42,10 @@ function normalizeAdminSession(session: Session | null) {
   }
 
   const normalizedRole = String(session.user.role ?? '').toUpperCase();
-  if (normalizedRole !== 'ADMIN') {
+  if (!isAdmin(normalizedRole as Role)) {
     return {
       error: NextResponse.json(
-        { error: 'Forbidden: Only ADMIN users can access sessions' },
+        { error: 'Forbidden: Only administrators can access sessions' },
         { status: 403 }
       ),
     };

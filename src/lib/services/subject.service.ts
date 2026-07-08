@@ -1,13 +1,7 @@
 import { Prisma } from '@prisma/client';
-import { Role } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-
-export interface AuthenticatedUser {
-  id: string;
-  role: Role;
-  email?: string;
-  schoolId?: string;
-}
+import { isAdmin } from '@/lib/permissions';
+import type { AuthenticatedUser } from '@/types/authenticated-user';
 
 export interface CreateSubjectInput {
   name: string;
@@ -39,8 +33,8 @@ export class SubjectService {
   }
 
   private requireAdmin(): void {
-    if (this.user.role !== 'ADMIN') {
-      throw new Error('Unauthorized: Only ADMIN users can perform this action');
+    if (!isAdmin(this.user)) {
+      throw new Error('Unauthorized: Only administrators can perform this action');
     }
   }
 

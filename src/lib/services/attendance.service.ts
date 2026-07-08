@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { AuthenticatedUser } from '@/lib/permissions';
+import type { AuthenticatedUser } from '@/types/authenticated-user';
 import { TeacherService } from '@/lib/services/teacher.service';
 
 export interface AttendanceRecord {

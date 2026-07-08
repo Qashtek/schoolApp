@@ -1,13 +1,7 @@
 import { hash } from 'bcryptjs';
-import { Role } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-
-export interface AuthenticatedUser {
-  id: string;
-  role: Role;
-  email?: string;
-  schoolId?: string;
-}
+import { isAdmin } from '@/lib/permissions';
+import type { AuthenticatedUser } from '@/types/authenticated-user';
 
 export interface CreateParentInput {
   name: string;
@@ -27,8 +21,8 @@ export class ParentService {
   }
 
   private requireAdmin(action: string): void {
-    if (this.user.role !== 'ADMIN') {
-      throw new Error(`Unauthorized: Only ADMIN users can ${action}`);
+    if (!isAdmin(this.user)) {
+      throw new Error(`Unauthorized: Only administrators can ${action}`);
     }
   }
 

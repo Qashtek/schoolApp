@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { hash } from 'bcryptjs';
-import { AuthenticatedUser, isAdmin } from '@/lib/permissions';
+import { isAdmin } from '@/lib/permissions';
+import type { AuthenticatedUser } from '@/types/authenticated-user';
 
 export interface CreateTeacherInput {
   userId: string;

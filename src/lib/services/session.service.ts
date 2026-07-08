@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
-import type { AuthenticatedUser } from '@/lib/permissions';
+import { isAdmin } from '@/lib/permissions';
+import type { AuthenticatedUser } from '@/types/authenticated-user';
 
 export interface CreateSessionInput {
   name: string;
@@ -20,8 +21,8 @@ export class SessionService {
   }
 
   private requireAdmin(): void {
-    if (this.user.role !== 'ADMIN') {
-      throw new Error('Unauthorized: Only ADMIN users can create or modify sessions and terms');
+    if (!isAdmin(this.user)) {
+      throw new Error('Unauthorized: Only administrators can create or modify sessions and terms');
     }
   }
 

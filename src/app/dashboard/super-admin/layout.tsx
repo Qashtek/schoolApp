@@ -8,8 +8,6 @@ const navItems = [
   { label: 'Dashboard', href: '/dashboard/super-admin' },
   { label: 'Schools', href: '/dashboard/super-admin/schools' },
   { label: 'Admins', href: '/dashboard/super-admin/admins' },
-  { label: 'Create School', href: '/dashboard/super-admin/schools/new' },
-  { label: 'Create Admin', href: '/dashboard/super-admin/admins/new' },
   { label: 'Change Password', href: '/dashboard/super-admin/change-password' },
 ];
 
