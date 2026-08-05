@@ -20,10 +20,6 @@ export interface AssignSubjectToClassInput {
   classId: string;
 }
 
-export interface AssignSubjectToTeacherInput {
-  subjectId: string;
-  teacherId: string;
-}
 
 export class SubjectService {
   private user: AuthenticatedUser;
@@ -337,37 +333,5 @@ export class SubjectService {
         subject: true,
       },
     });
-  }
-
-  async assignSubjectToTeacher(data: AssignSubjectToTeacherInput) {
-    this.requireAdmin();
-    const schoolId = this.requireSchoolId();
-
-    const [subject, teacher] = await prisma.$transaction([
-      prisma.subject.findFirst({
-        where: {
-          id: data.subjectId,
-          schoolId,
-          deletedAt: null,
-        },
-      }),
-      prisma.teacher.findFirst({
-        where: {
-          id: data.teacherId,
-          schoolId,
-          deletedAt: null,
-        },
-      }),
-    ]);
-
-    if (!subject) {
-      throw new Error('Subject not found in your school');
-    }
-
-    if (!teacher) {
-      throw new Error('Teacher not found in your school');
-    }
-
-    throw new Error('assignSubjectToTeacher is deprecated. Use TeacherService.assignSubjectTeacher instead.');
   }
 }

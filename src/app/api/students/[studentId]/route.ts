@@ -6,6 +6,10 @@ import { authOptions, Role } from '@/lib/auth';
 import { isAdmin } from '@/lib/permissions';
 
 const updateStudentSchema = z.object({
+  firstName: z.string().trim().min(1, 'First name is required').optional(),
+  lastName: z.string().trim().min(1, 'Last name is required').optional(),
+  admissionNumber: z.string().trim().min(1, 'Admission number is required').optional(),
+  email: z.string().trim().email('Invalid email address').optional(),
   grade: z.string().trim().optional(),
   classId: z.string().trim().optional(),
 });
@@ -96,6 +100,7 @@ export async function PATCH(
       id: session.user.id as string,
       role: normalizedRole as Role,
       email: session.user.email as string | undefined,
+      schoolId: session.user.schoolId as string | undefined,
     };
 
     if (!isAdmin(normalizedRole as Role)) {

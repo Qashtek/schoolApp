@@ -14,6 +14,10 @@ export interface CreateStudentInput {
 }
 
 export interface UpdateStudentInput {
+  firstName?: string;
+  lastName?: string;
+  admissionNumber?: string;
+  email?: string;
   grade?: string;
   classId?: string;
   class?: string;
@@ -229,18 +233,11 @@ export class StudentService {
     this.requireAdmin();
 
     const student = await prisma.student.findFirst({
-      where: { id, deletedAt: null },
-    });
-
-    if (!student) {
-      throw new Error('Student not found');
-    }
-
-    const updatedStudent = await prisma.student.update({
-      where: { id },
-      data: {
-        grade: data.grade,
-        classId: data.classId || data.class,
+      where: {
+        id,
+        deletedAt: null,
+        // School admins can only edit students within their own school
+        ...(this.user.schoolId ? { schoolId: this.user.schoolId } : {}),
       },
       include: {
         user: {
@@ -251,6 +248,109 @@ export class StudentService {
           },
         },
       },
+    });
+
+    if (!student) {
+      throw new Error('Student not found');
+    }
+
+    const emailToSet = data.email?.trim();
+
+    // Duplicate admission number check within the same school (excluding this student)
+    if (data.admissionNumber && data.admissionNumber.trim() !== student.admissionNumber) {
+      const duplicateAdmission = await prisma.student.findFirst({
+        where: {
+          admissionNumber: data.admissionNumber.trim(),
+          schoolId: student.schoolId,
+          deletedAt: null,
+          NOT: { id: student.id },
+        },
+      });
+
+      if (duplicateAdmission) {
+        throw new Error('Admission number already exists for this school');
+      }
+    }
+
+    // Verify the class belongs to this school (school admins can't move
+    // students into another school's class)
+    if (data.classId) {
+      const classRecord = await prisma.class.findFirst({
+        where: { id: data.classId, deletedAt: null },
+        select: { schoolId: true },
+      });
+
+      if (!classRecord || classRecord.schoolId !== student.schoolId) {
+        throw new Error('Class not found in this school');
+      }
+    }
+
+    // Duplicate email check (User.email is globally unique). Runs even when
+    // the student has no linked user yet.
+    if (emailToSet && student.user?.email !== emailToSet) {
+      const existingUser = await prisma.user.findUnique({
+        where: { email: emailToSet },
+        select: { id: true },
+      });
+
+      if (existingUser && existingUser.id !== student.user?.id) {
+        throw new Error('Email is already in use by another account');
+      }
+    }
+
+    // Keep the linked user's display name in sync with the student's name
+    const nameToSet = [data.firstName, data.lastName].filter(Boolean).join(' ').trim();
+
+    const updatedStudent = await prisma.$transaction(async (tx) => {
+      if (student.user) {
+        await tx.user.update({
+          where: { id: student.user.id },
+          data: {
+            ...(nameToSet && { name: nameToSet }),
+            ...(emailToSet && { email: emailToSet }),
+          },
+        });
+      } else if (emailToSet) {
+        // No linked user yet — create one so the email can be stored
+        const createdUser = await tx.user.create({
+          data: {
+            name: nameToSet || `${data.firstName ?? student.firstName} ${data.lastName ?? student.lastName}`.trim(),
+            email: emailToSet,
+            role: 'STUDENT',
+          },
+        });
+        await tx.student.update({
+          where: { id: student.id },
+          data: { userId: createdUser.id },
+        });
+      }
+
+      return tx.student.update({
+        where: { id: student.id },
+        data: {
+          firstName: data.firstName,
+          lastName: data.lastName,
+          admissionNumber: data.admissionNumber?.trim(),
+          grade: data.grade,
+          classId: data.classId || data.class,
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          class: {
+            select: {
+              id: true,
+              name: true,
+              grade: true,
+            },
+          },
+        },
+      });
     });
 
     return updatedStudent;

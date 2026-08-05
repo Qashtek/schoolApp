@@ -57,15 +57,8 @@ export default async function TeacherStudentsPage({ searchParams }: PageProps) {
     );
   }
 
-  const classTeacherAssignment = await prisma.teacherClassSubject.findFirst({
-    where: {
-      teacherId: teacher.id,
-      assignmentType: 'CLASS_TEACHER',
-    },
-    select: { id: true },
-  });
-  const canTakeAttendance = Boolean(classTeacherAssignment);
-
+  // Class IDs where this teacher is the assigned class teacher — attendance
+  // marking is only allowed for these classes, not subject-teacher-only classes.
   const assignedClassRecords = await prisma.teacherClassSubject.findMany({
     where: {
       teacherId: teacher.id,
@@ -103,6 +96,13 @@ export default async function TeacherStudentsPage({ searchParams }: PageProps) {
       classId: 'asc',
     },
   });
+
+  const classTeacherClassIds = new Set(
+    assignedClassRecords
+      .filter((record) => record.assignmentType === 'CLASS_TEACHER')
+      .map((record) => record.classId)
+  );
+  const canTakeAttendance = classTeacherClassIds.size > 0;
 
   // Deduplicate by classId — a teacher may have both CLASS_TEACHER and SUBJECT_TEACHER for the same class
   const seenClassIds = new Set<string>();
@@ -154,11 +154,24 @@ export default async function TeacherStudentsPage({ searchParams }: PageProps) {
                   classItem.attendances.map((attendance) => [attendance.studentId, attendance.status])
                 );
                 const alreadyMarkedToday = classItem.attendances.length > 0;
+                // Only the assigned class teacher of THIS class can mark attendance.
+                const isClassTeacherForThisClass = classTeacherClassIds.has(classItem.id);
 
                 return (
                   <section key={classItem.id} className="border border-gray-200 rounded-lg">
                     <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
-                      <h2 className="text-lg font-semibold text-gray-900">{classItem.name}</h2>
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-lg font-semibold text-gray-900">{classItem.name}</h2>
+                        {isClassTeacherForThisClass ? (
+                          <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-200">
+                            Class Teacher
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-200">
+                            Subject Teacher
+                          </span>
+                        )}
+                      </div>
                       <p className="text-sm text-gray-600">
                         Grade {classItem.grade} • {classItem.students.length} student{classItem.students.length === 1 ? '' : 's'}
                       </p>
@@ -171,7 +184,7 @@ export default async function TeacherStudentsPage({ searchParams }: PageProps) {
                       <div className="px-4 py-4">
                         <p className="text-sm text-gray-500">No students in this class.</p>
                       </div>
-                    ) : !canTakeAttendance ? (
+                    ) : !isClassTeacherForThisClass ? (
                       <div className="overflow-x-auto">
                         <table className="min-w-full divide-y divide-gray-200">
                           <thead className="bg-white">

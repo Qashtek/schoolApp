@@ -130,6 +130,13 @@ export default async function AdminSubjectDetailPage({
                 },
               },
             },
+            class: {
+              select: {
+                id: true,
+                name: true,
+                grade: true,
+              },
+            },
           },
           orderBy: {
             createdAt: 'desc',
@@ -316,6 +323,9 @@ export default async function AdminSubjectDetailPage({
                   className="rounded-md border border-gray-100 bg-gray-50 px-3 py-2 text-sm text-gray-700"
                 >
                   {entry.teacher.user.name || 'Unnamed Teacher'} ({entry.teacher.user.email})
+                  {entry.class && (
+                    <span className="ml-2 text-xs text-gray-500">- {entry.class.name} ({entry.class.grade})</span>
+                  )}
                 </li>
               ))}
             </ul>
@@ -326,6 +336,11 @@ export default async function AdminSubjectDetailPage({
               id: entry.id,
               name: entry.user.name || 'Unnamed Teacher',
               email: entry.user.email,
+            }))}
+            availableClasses={availableClasses.map((entry) => ({
+              id: entry.id,
+              name: entry.name,
+              grade: entry.grade,
             }))}
           />
         </section>

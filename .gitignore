@@ -2,6 +2,8 @@ node_modules
 .env
 .next/
 prisma/dev.db
+prisma/*.bak*
 next-env.d.ts
+tsconfig.tsbuildinfo
 .codex
 .DS_Store

@@ -23,6 +23,7 @@ type AssignClassFormProps = {
 type AssignTeacherFormProps = {
   subjectId: string;
   availableTeachers: AvailableTeacher[];
+  availableClasses: AvailableClass[];
 };
 
 export function AssignClassForm({ subjectId, availableClasses }: AssignClassFormProps) {
@@ -113,9 +114,10 @@ export function AssignClassForm({ subjectId, availableClasses }: AssignClassForm
   );
 }
 
-export function AssignTeacherForm({ subjectId, availableTeachers }: AssignTeacherFormProps) {
+export function AssignTeacherForm({ subjectId, availableTeachers, availableClasses }: AssignTeacherFormProps) {
   const router = useRouter();
   const [teacherId, setTeacherId] = useState('');
+  const [classId, setClassId] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isAssigning, setIsAssigning] = useState(false);
@@ -125,6 +127,11 @@ export function AssignTeacherForm({ subjectId, availableTeachers }: AssignTeache
     setError('');
     setSuccess('');
 
+    if (!classId) {
+      setError('Class is required');
+      return;
+    }
+
     if (!teacherId) {
       setError('Teacher is required');
       return;
@@ -133,12 +140,16 @@ export function AssignTeacherForm({ subjectId, availableTeachers }: AssignTeache
     setIsAssigning(true);
 
     try {
-      const response = await fetch(`/api/subjects/${subjectId}/teachers`, {
+      const response = await fetch(`/api/teachers/${teacherId}/assignments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ teacherId }),
+        body: JSON.stringify({
+          classId,
+          subjectId,
+          assignmentType: 'SUBJECT_TEACHER',
+        }),
       });
 
       const payload = await response.json().catch(() => null);
@@ -150,6 +161,7 @@ export function AssignTeacherForm({ subjectId, availableTeachers }: AssignTeache
 
       setSuccess('Teacher assigned successfully');
       setTeacherId('');
+      setClassId('');
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to assign teacher');
@@ -160,26 +172,53 @@ export function AssignTeacherForm({ subjectId, availableTeachers }: AssignTeache
 
   return (
     <form onSubmit={handleAssignTeacher} className="mt-5 space-y-3">
-      <label htmlFor="teacherId" className="block text-sm font-medium text-gray-700">
+      <label className="block text-sm font-medium text-gray-700">
         Assign New Teacher
       </label>
-      <select
-        id="teacherId"
-        name="teacherId"
-        value={teacherId}
-        onChange={(event) => setTeacherId(event.target.value)}
-        disabled={availableTeachers.length === 0 || isAssigning}
-        className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
-      >
-        <option value="" disabled>
-          {availableTeachers.length === 0 ? 'No teachers available' : 'Select a teacher'}
-        </option>
-        {availableTeachers.map((entry) => (
-          <option key={entry.id} value={entry.id}>
-            {entry.name} ({entry.email})
+      <div>
+        <label htmlFor="classId" className="block text-xs font-medium text-gray-600 mb-1">
+          Class
+        </label>
+        <select
+          id="classId"
+          name="classId"
+          value={classId}
+          onChange={(event) => setClassId(event.target.value)}
+          disabled={availableClasses.length === 0 || isAssigning}
+          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+        >
+          <option value="" disabled>
+            {availableClasses.length === 0 ? 'No classes available' : 'Select a class'}
           </option>
-        ))}
-      </select>
+          {availableClasses.map((entry) => (
+            <option key={entry.id} value={entry.id}>
+              {entry.name} ({entry.grade})
+            </option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label htmlFor="teacherId" className="block text-xs font-medium text-gray-600 mb-1">
+          Teacher
+        </label>
+        <select
+          id="teacherId"
+          name="teacherId"
+          value={teacherId}
+          onChange={(event) => setTeacherId(event.target.value)}
+          disabled={availableTeachers.length === 0 || isAssigning}
+          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+        >
+          <option value="" disabled>
+            {availableTeachers.length === 0 ? 'No teachers available' : 'Select a teacher'}
+          </option>
+          {availableTeachers.map((entry) => (
+            <option key={entry.id} value={entry.id}>
+              {entry.name} ({entry.email})
+            </option>
+          ))}
+        </select>
+      </div>
       {error && (
         <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
           {error}
@@ -192,7 +231,7 @@ export function AssignTeacherForm({ subjectId, availableTeachers }: AssignTeache
       )}
       <button
         type="submit"
-        disabled={availableTeachers.length === 0 || isAssigning}
+        disabled={availableTeachers.length === 0 || availableClasses.length === 0 || isAssigning}
         className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {isAssigning ? 'Assigning...' : 'Assign Teacher'}

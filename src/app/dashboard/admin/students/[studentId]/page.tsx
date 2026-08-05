@@ -36,6 +36,10 @@ interface Class {
 }
 
 interface FormErrors {
+  firstName?: string;
+  lastName?: string;
+  admissionNumber?: string;
+  email?: string;
   grade?: string;
   classId?: string;
   general?: string;
@@ -55,6 +59,10 @@ export default function StudentDetailPage() {
   const successRef = useRef<HTMLDivElement | null>(null);
 
   const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    admissionNumber: '',
+    email: '',
     grade: '',
     classId: '',
   });
@@ -75,6 +83,10 @@ export default function StudentDetailPage() {
         const studentData = await studentResponse.json();
         setStudent(studentData);
         setFormData({
+          firstName: studentData.firstName || '',
+          lastName: studentData.lastName || '',
+          admissionNumber: studentData.admissionNumber || '',
+          email: studentData.user?.email || '',
           grade: studentData.grade || '',
           classId: studentData.classId || '',
         });
@@ -111,10 +123,23 @@ export default function StudentDetailPage() {
     setErrors({});
     setSuccess('');
 
-    if (!formData.grade.trim() && !formData.classId) {
-      setErrors({
-        general: 'Please update at least one field',
-      });
+    // Basic validation
+    const newErrors: FormErrors = {};
+    if (!formData.firstName.trim()) {
+      newErrors.firstName = 'First name is required';
+    }
+    if (!formData.lastName.trim()) {
+      newErrors.lastName = 'Last name is required';
+    }
+    if (!formData.admissionNumber.trim()) {
+      newErrors.admissionNumber = 'Admission number is required';
+    }
+    if (formData.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+      newErrors.email = 'Invalid email address';
+    }
+    setErrors(newErrors);
+
+    if (Object.keys(newErrors).length > 0) {
       return;
     }
 
@@ -127,6 +152,10 @@ export default function StudentDetailPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          firstName: formData.firstName.trim(),
+          lastName: formData.lastName.trim(),
+          admissionNumber: formData.admissionNumber.trim(),
+          email: formData.email.trim() || undefined,
           grade: formData.grade.trim() || undefined,
           classId: formData.classId || undefined,
         }),
@@ -273,23 +302,84 @@ export default function StudentDetailPage() {
               )}
 
               <div className="space-y-6">
-                {/* Grade */}
+                {/* First & Last Name */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="firstName" className="block text-sm font-medium text-gray-700">
+                      First Name *
+                    </label>
+                    <input
+                      type="text"
+                      id="firstName"
+                      value={formData.firstName}
+                      onChange={(e) => setFormData(prev => ({ ...prev, firstName: e.target.value }))}
+                      className={`mt-1 block w-full px-3 py-2 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        errors.firstName ? 'border-red-300' : 'border-gray-300'
+                      }`}
+                      placeholder="Enter first name"
+                    />
+                    {errors.firstName && (
+                      <p className="mt-1 text-sm text-red-600">{errors.firstName}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label htmlFor="lastName" className="block text-sm font-medium text-gray-700">
+                      Last Name *
+                    </label>
+                    <input
+                      type="text"
+                      id="lastName"
+                      value={formData.lastName}
+                      onChange={(e) => setFormData(prev => ({ ...prev, lastName: e.target.value }))}
+                      className={`mt-1 block w-full px-3 py-2 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        errors.lastName ? 'border-red-300' : 'border-gray-300'
+                      }`}
+                      placeholder="Enter last name"
+                    />
+                    {errors.lastName && (
+                      <p className="mt-1 text-sm text-red-600">{errors.lastName}</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Admission Number */}
                 <div>
-                  <label htmlFor="grade" className="block text-sm font-medium text-gray-700">
-                    Grade
+                  <label htmlFor="admissionNumber" className="block text-sm font-medium text-gray-700">
+                    Admission Number *
                   </label>
                   <input
                     type="text"
-                    id="grade"
-                    value={formData.grade}
-                    onChange={(e) => setFormData(prev => ({ ...prev, grade: e.target.value }))}
+                    id="admissionNumber"
+                    value={formData.admissionNumber}
+                    onChange={(e) => setFormData(prev => ({ ...prev, admissionNumber: e.target.value }))}
                     className={`mt-1 block w-full px-3 py-2 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      errors.grade ? 'border-red-300' : 'border-gray-300'
+                      errors.admissionNumber ? 'border-red-300' : 'border-gray-300'
                     }`}
-                    placeholder="e.g. A, B, C"
+                    placeholder="Enter admission number"
                   />
-                  {errors.grade && (
-                    <p className="mt-1 text-sm text-red-600">{errors.grade}</p>
+                  {errors.admissionNumber && (
+                    <p className="mt-1 text-sm text-red-600">{errors.admissionNumber}</p>
+                  )}
+                </div>
+
+                {/* Email */}
+                <div>
+                  <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                    Email Address
+                  </label>
+                  <input
+                    type="email"
+                    id="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                    className={`mt-1 block w-full px-3 py-2 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      errors.email ? 'border-red-300' : 'border-gray-300'
+                    }`}
+                    placeholder="student@school.edu"
+                  />
+                  {errors.email && (
+                    <p className="mt-1 text-sm text-red-600">{errors.email}</p>
                   )}
                 </div>
 
@@ -315,6 +405,26 @@ export default function StudentDetailPage() {
                   </select>
                   {errors.classId && (
                     <p className="mt-1 text-sm text-red-600">{errors.classId}</p>
+                  )}
+                </div>
+
+                {/* Grade */}
+                <div>
+                  <label htmlFor="grade" className="block text-sm font-medium text-gray-700">
+                    Grade
+                  </label>
+                  <input
+                    type="text"
+                    id="grade"
+                    value={formData.grade}
+                    onChange={(e) => setFormData(prev => ({ ...prev, grade: e.target.value }))}
+                    className={`mt-1 block w-full px-3 py-2 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      errors.grade ? 'border-red-300' : 'border-gray-300'
+                    }`}
+                    placeholder="e.g. A, B, C"
+                  />
+                  {errors.grade && (
+                    <p className="mt-1 text-sm text-red-600">{errors.grade}</p>
                   )}
                 </div>
               </div>

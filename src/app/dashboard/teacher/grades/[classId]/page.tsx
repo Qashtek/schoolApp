@@ -79,49 +79,61 @@ export default async function TeacherGradeEntryPage({ params, searchParams }: Pa
   let subjects: { id: string; name: string; code: string }[];
 
   if (isClassTeacher) {
-    // CLASS_TEACHER: fetch ALL subjects assigned to this class
-    const classSubjects = await prisma.classSubject.findMany({
-      where: {
-        classId,
-        ...(selectedSubjectId ? { subjectId: selectedSubjectId } : {}),
-      },
-      select: {
-        subject: {
-          select: {
-            id: true,
-            name: true,
-            code: true,
+    // CLASS_TEACHER: fetch ALL subjects assigned to this class.
+    // A subject counts as assigned to the class when it is linked through
+    // class_subjects OR is taught by a subject teacher in this class.
+    const [classSubjectEntries, subjectTeacherEntries] = await prisma.$transaction([
+      prisma.classSubject.findMany({
+        where: { classId },
+        select: {
+          subject: {
+            select: {
+              id: true,
+              name: true,
+              code: true,
+            },
           },
         },
-      },
-    });
-    subjects = classSubjects.map((entry) => entry.subject);
-  } else {
-    // SUBJECT_TEACHER: only subjects from their assignments for this class
-    const subjectIds = classAssignments
-      .filter((a) => a.subject)
-      .map((a) => a.subject!.id);
+      }),
+      prisma.teacherClassSubject.findMany({
+        where: {
+          classId,
+          assignmentType: 'SUBJECT_TEACHER',
+          subjectId: { not: null },
+        },
+        select: {
+          subject: {
+            select: {
+              id: true,
+              name: true,
+              code: true,
+            },
+          },
+        },
+      }),
+    ]);
 
-    const classSubjects = await prisma.classSubject.findMany({
-      where: {
-        classId,
-        subjectId: {
-          in: selectedSubjectId
-            ? subjectIds.filter((id) => id === selectedSubjectId)
-            : subjectIds,
-        },
-      },
-      select: {
-        subject: {
-          select: {
-            id: true,
-            name: true,
-            code: true,
-          },
-        },
-      },
-    });
-    subjects = classSubjects.map((entry) => entry.subject);
+    const mergedSubjects = new Map<string, { id: string; name: string; code: string }>();
+
+    for (const entry of [...classSubjectEntries, ...subjectTeacherEntries]) {
+      if (entry.subject) {
+        mergedSubjects.set(entry.subject.id, entry.subject);
+      }
+    }
+
+    subjects = Array.from(mergedSubjects.values());
+  } else {
+    // SUBJECT_TEACHER: the teacher can grade the subjects they are assigned
+    // to teach in this class. The assignment record is authoritative, which
+    // also covers cases where the class_subjects link is missing (legacy data
+    // or assignments created directly without linking the subject to the class).
+    subjects = classAssignments
+      .filter((a) => a.subject)
+      .map((a) => a.subject!);
+  }
+
+  if (selectedSubjectId) {
+    subjects = subjects.filter((s) => s.id === selectedSubjectId);
   }
 
   subjects.sort((a, b) => a.name.localeCompare(b.name));

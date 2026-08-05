@@ -287,7 +287,21 @@ export class GradeService {
     }
 
     if (!classSubject) {
-      throw new Error('Subject is not assigned to this class');
+      // The subject may not have an explicit class_subjects link yet (e.g. it
+      // was only assigned through a teacher's SUBJECT_TEACHER assignment).
+      // Accept it if any subject teacher is assigned to teach it in this class.
+      const subjectTaughtInClass = await prisma.teacherClassSubject.findFirst({
+        where: {
+          classId,
+          subjectId,
+          assignmentType: 'SUBJECT_TEACHER',
+        },
+        select: { id: true },
+      });
+
+      if (!subjectTaughtInClass) {
+        throw new Error('Subject is not assigned to this class');
+      }
     }
 
     if (student.classId !== classId) {

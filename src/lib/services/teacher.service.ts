@@ -484,30 +484,48 @@ export class TeacherService {
       throw new Error('This teacher is already assigned to teach this subject in this class');
     }
 
-    // Create the SUBJECT_TEACHER assignment
-    const assignment = await prisma.teacherClassSubject.create({
-      data: {
-        teacherId,
-        classId,
-        subjectId,
-        assignmentType: 'SUBJECT_TEACHER',
-      },
-      include: {
-        class: true,
-        subject: true,
-        teacher: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
+    // Create the SUBJECT_TEACHER assignment and ensure the subject is linked
+    // to the class (class_subjects) atomically. The class_subjects link is what
+    // grade entry, class/subject detail pages and report cards rely on, so it
+    // must exist even when the subject was never added to the class explicitly.
+    const [assignment] = await prisma.$transaction([
+      prisma.teacherClassSubject.create({
+        data: {
+          teacherId,
+          classId,
+          subjectId,
+          assignmentType: 'SUBJECT_TEACHER',
+        },
+        include: {
+          class: true,
+          subject: true,
+          teacher: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                },
               },
             },
           },
         },
-      },
-    });
+      }),
+      prisma.classSubject.upsert({
+        where: {
+          classId_subjectId: {
+            classId,
+            subjectId,
+          },
+        },
+        create: {
+          classId,
+          subjectId,
+        },
+        update: {},
+      }),
+    ]);
 
     return assignment;
   }
